@@ -290,7 +290,7 @@ public HelpHandler(Handle menuid, MenuAction action, id, menu_item)
 }
 public ShowClassHelp(id,classid)
 {
-  Menu menu = CreateMenu(HelpHandler)
+  Menu menu = CreateMenu(ClassHelpHandler)
   menu.SetTitle(ClassName[classid])
   menu.AddItem("1",ClassDescription[classid])
   menu.ExitBackButton = true
