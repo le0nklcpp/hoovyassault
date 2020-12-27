@@ -27,7 +27,7 @@ bool HoovyValid[32]
 bool MadeHisChoice[32] = false
 bool BannerDeployed[32] = false
 #define HOOVY_EFFECTS_RADIUS 315.0
-
+#define MENU_TIMEOUT 10
 //#define IsFood(%1) (%1==42||%1==159||%1==311||%1==433||%1==863||%1==1002||%1==1190)
 public bool IsFood(weapon)
 {
@@ -70,8 +70,25 @@ enum
  Num_Chars
 }
 float ClassChars[NUM_CLASSES][Num_Chars]={{1.0,1.0,1.0},{1.0,1.0,1.0},{0.5,0.85,1.3},{0.75,1.15,1.15},{0.6,0.6,1.0},{1.0,1.0,1.0},{0.7,1.0,1.0} }
-
-
+char ClassDescription[NUM_CLASSES][]={
+"no positive or negative effects",
+"Healing allies,BUT may use only melee",
+"+50 max HP,+10% dmg res for allies, BUT -50% HP,-30% dmg res,-15% dmg penalty for you",
+" +10% dmg bonus for allies,+15% for you, BUT -15% HP,-15% dmg res for you",
+"increased speed, BUT -40% HP,-40% dmg penalty",
+"kills with one punch, dies from one punch",
+"Activate Buff Banner by using POOTIS (press x then press 5), BUT always marked for death,-30% health"
+}
+char ClassName[NUM_CLASSES][]=
+{
+"Soldier",
+"Medic",
+"Comissar",
+"Officer",
+"Scout",
+"Boxer",
+"Trumpeter"
+}
 #define HOOVY_BIT_DMGBONUS (1<<1)
 #define HOOVY_BIT_DMGRES (1<<2)
 #define HOOVY_BIT_OVERHEAL (1<<3)
@@ -204,35 +221,89 @@ public doSDKHooks(client)
 }
 public showMenu(id)
 {
- new Handle:menu = CreateMenu(MenuHandler)
- SetMenuTitle(menu,"Hoovy Class menu")
- AddMenuItem(menu,"1" ,"Soldier - no effects")
- AddMenuItem(menu,"2" ,"Medic - Healing allies, may use only melee")
- AddMenuItem(menu,"3" ,"Comissar - +50 max HP,+10% dmg res for allies, BUT -50% HP,-30% dmg res,-15% dmg penalty for you")
- AddMenuItem(menu,"4" ,"Officer - +10% dmg bonus for allies,+15% for you, BUT -15% HP,-15% dmg res for you")
- AddMenuItem(menu,"5" ,"Scout - increased speed, BUT -40% HP,-40% dmg penalty")
- AddMenuItem(menu,"6" ,"Boxer - kills with one punch, dies from one punch")
- AddMenuItem(menu,"7" ,"Trumpeter - Activate Buff Banner by using POOTIS (press x then press 5), BUT always marked for death,-30% health")
- SetMenuExitBackButton(menu, false)
- SetMenuExitButton(menu, true)
- DisplayMenu(menu, id, 7)
+ Menu menu = CreateMenu(MenuHandler)
+ menu.SetTitle("Hoovy Class menu")
+ char strinfo[2]
+ strinfo[1] = '\0'
+ for(int i=0;i<NUM_CLASSES;i++)
+  {  
+   strinfo[0] = i
+   menu.AddItem(strinfo,ClassName[i])
+  }
+ strinfo[0]++
+ menu.AddItem(strinfo ,"Help")
+ menu.ExitBackButton = false
+ menu.ExitButton = true
+ menu.Display( id, MENU_TIMEOUT)
 }
 public MenuHandler(Handle menuid, MenuAction action, id, menu_item)
 { 
  if(action == MenuAction_End)CloseHandle(menuid)
  if(action == MenuAction_Select)
  {
-  char strinfo[3]
-  GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo));
-  MadeHisChoice[id] = true
-  int result = StringToInt(strinfo) - 1
-  HoovyClass[id] = result 
-  HoovyMaxHealth[id] = getMaxHealth(id)
-  SetEntityHealth(id,RoundToFloor(HoovyMaxHealth[id]))
-  TF2_RespawnPlayer(id)
-  PrintToChat(id,"You will be able to pick other class after death")
-  //CloseHandle(menuid)
+  char strinfo[2]
+  GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo))
+  int result = strinfo[0]
+  if(result<NUM_CLASSES)
+   {
+    MadeHisChoice[id] = true
+    HoovyClass[id] = result 
+    HoovyMaxHealth[id] = getMaxHealth(id)
+    SetEntityHealth(id,RoundToFloor(HoovyMaxHealth[id]))
+    TF2_RespawnPlayer(id)
+    PrintToChat(id,"You will be able to pick other class after death")
+   }
+  else
+   {
+    ShowHelp(id)
+   }
  }
+}
+public ShowHelp(id)
+ {
+  Menu menu = CreateMenu(HelpHandler)
+  menu.SetTitle("Classes information")
+  char strinfo[2]
+  strinfo[1] = '\0'
+  for(int i=0;i<NUM_CLASSES;i++)
+   {  
+    strinfo[0] = i
+    menu.AddItem(strinfo,ClassName[i])
+   }
+  menu.ExitButton = false
+  menu.ExitBackButton = true
+  menu.Display( id, MENU_TIME_FOREVER)
+ }
+public HelpHandler(Handle menuid, MenuAction action, id, menu_item)
+{ 
+ if(action == MenuAction_Cancel)
+  { 
+   CloseHandle(menuid)
+   if(!MadeHisChoice[id])showMenu(id)
+  }
+ if(action == MenuAction_Select)
+ {
+  char strinfo[2]
+  GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo))
+  ShowClassHelp(id,strinfo[0])
+ }
+}
+public ShowClassHelp(id,classid)
+{
+  Menu menu = CreateMenu(HelpHandler)
+  menu.SetTitle(ClassName[classid])
+  menu.AddItem("1",ClassDescription[classid])
+  menu.ExitBackButton = true
+  menu.ExitButton = false
+  menu.Display(id , MENU_TIME_FOREVER)
+}
+public ClassHelpHandler(Handle menuid, MenuAction action, id, menu_item)
+{ 
+ if(action == MenuAction_Cancel||action == MenuAction_Select)
+  { 
+   CloseHandle(menuid)
+   ShowHelp(id)
+  }
 }
 public TryHealing(id)
 {
@@ -259,8 +330,12 @@ public HoovyBasicOperations()
   HoovyFlags[i] = 0
   GetClientAbsOrigin(i, HoovyCoords[i])
   RemoveUnwantedWeapons(i)
-  if(HoovyClass[i]==HOOVY_MEDIC||meleeOnlyAllowed.BoolValue)setActiveSlot(i,TFWeaponSlot_Melee) // force medic bot to use melee
+  if(IsFakeClient(i)&&(HoovyClass[i]==HOOVY_MEDIC||meleeOnlyAllowed.BoolValue))setActiveSlot(i,TFWeaponSlot_Melee) // force medic bot to use melee
   if(HoovyClass[i]==HOOVY_SCOUT)TF2_AddCondition(i, TFCond_SpeedBuffAlly, 1.1)
+  if(HoovyClass[i]==HOOVY_BOXER)
+   {
+    if(getItemIndex(GetPlayerWeaponSlot(i, TFWeaponSlot_Melee))==43)TF2_AddCondition(i,TFCond_MarkedForDeathSilent,1.1)
+   }
   if(HoovyClass[i]==HOOVY_TRUMPETER)
    { 
     TF2_AddCondition(i,TFCond_MarkedForDeathSilent,1.1)
@@ -406,6 +481,10 @@ AttachParticle(iEntity, const String:strParticleEffect[], const String:strAttach
 	}
 	
 	return 0;
+}
+stock getItemIndex(item)
+{
+ return GetEntProp(item,Prop_Send, "m_iItemDefinitionIndex")
 }
 stock getActiveSlot(id)
 {
