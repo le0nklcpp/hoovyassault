@@ -28,7 +28,7 @@ bool MadeHisChoice[32] = false
 bool BannerDeployed[32] = false
 #define HOOVY_EFFECTS_RADIUS 315.0
 #define MENU_TIMEOUT 10
-//#define IsFood(%1) (%1==42||%1==159||%1==311||%1==433||%1==863||%1==1002||%1==1190)
+
 public bool IsFood(weapon)
 {
  static char classname[64]
@@ -101,7 +101,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "0.0.8",
+ version = "0.0.10",
  url = ""
 };
 public OnPluginStart()
@@ -110,7 +110,7 @@ public OnPluginStart()
  //LoadTranslations("hoovy.phrases")
  CreateTimer(1.0,UpdateHoovies,_, TIMER_REPEAT)
  HookEvent("player_spawn", Event_PlayerSpawn)
- HookEvent("player_death", Event_PlayerDeath, EventHookMode_Pre);
+ HookEvent("player_death", Event_PlayerDeath, EventHookMode_Pre)
  HookEvent("item_pickup" , Event_ItemPickup)
  HookEvent("post_inventory_application" , Event_Resupply)
  AddCommandListener(VoiceCommand , "voicemenu")
