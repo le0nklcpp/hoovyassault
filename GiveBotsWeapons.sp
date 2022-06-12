@@ -191,22 +191,20 @@ public Action Timer_GiveWeapons(Handle timer, any data)
 	{
 			TF2_RemoveWeaponSlot(client,1);
 			TF2_RemoveWeaponSlot(client,2);
-			int rnd2 = GetRandomUInt(1,3);
-			switch (rnd2)
+			int rnd2 = GetRandomUInt(1,100);
+			if(rnd2<40)
 			{
-				case 1:
-				{
-					CreateWeapon(client, "tf_weapon_shotgun_hwg", 425);
-				}
-				case 2:
-				{
-					CreateWeapon(client, "tf_weapon_shotgun", 1153);
-				}
-				case 3:
-				{
-					CreateWeapon(client, "tf_weapon_lunchbox", 311);
-				}
+				CreateWeapon(client, "tf_weapon_shotgun_hwg", 425);
 			}
+			else if(rnd2<80)
+			{
+					CreateWeapon(client, "tf_weapon_shotgun_hwg", 11);
+			}
+			else
+			{
+					CreateWeapon(client, "tf_weapon_lunchbox", 311);
+			}
+			
 			int rnd3 = GetRandomUInt(1,11);
 			switch (rnd3)
 			{
