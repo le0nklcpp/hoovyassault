@@ -27,7 +27,7 @@ bool HoovyValid[32]
 bool MadeHisChoice[32] = false
 bool BannerDeployed[32] = false
 #define HOOVY_EFFECTS_RADIUS 315.0
-#define MENU_TIMEOUT 10
+#define MENU_TIMEOUT 4
 
 public bool IsFood(weapon)
 {
