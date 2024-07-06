@@ -71,6 +71,9 @@ enum
  Num_Chars
 }
 float ClassChars[NUM_CLASSES][Num_Chars]={{1.0,1.0,1.0},{1.0,1.0,1.0},{0.5,0.85,1.3},{0.75,1.15,1.15},{0.6,0.6,1.0},{1.0,1.0,1.0},{0.7,1.0,1.0} }
+
+#define BOT_CLASS_LIMIT 2
+
 char ClassDescription[NUM_CLASSES][]={
 "no positive or negative effects",
 "Healing allies,BUT may use only melee",
@@ -292,7 +295,6 @@ public HelpHandler(Handle menuid, MenuAction action, id, menu_item)
   char strinfo[2]
   GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo))
   ShowClassHelp(id,strinfo[0])
-  CloseHandle(menuid)
  }
 }
 public ShowClassHelp(id,classid)
@@ -444,7 +446,7 @@ public Action task_afterspawn(Handle timer, client)
  { 
   if(!MadeHisChoice[client])ShowMainMenu(client)
  }
- else HoovyClass[client] = GetRandomInt(0,6)
+ else HoovyClass[client] = PickBotClass(client)
  if(TF2_GetPlayerClass(client)!=TFClass_Heavy)
    {
    MadeHisChoice[client] = false
@@ -518,6 +520,43 @@ stock setActiveSlot(client,slot)
   {
    SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", iWeapon);
   }
+}
+stock countClass(id,cl)
+{
+    static int i,ctr
+    ctr = 0
+    for(i = 0; i < MaxClients;i++)
+    {
+        if(!HoovyValid[i]||i==id)continue;
+        if(HoovyClass[i]==cl)ctr++
+    }
+    return ctr
+}
+stock PickBotClass(id)
+{
+    static int i,j,cl,count
+    ArrayList nClasses = CreateArray(1)
+    for(i=0;i<NUM_CLASSES;i++)
+    {
+        if(countClass(id,i)<BOT_CLASS_LIMIT)
+        {
+            count = GetRandomInt(0,BOT_CLASS_LIMIT)
+            for(j=0;j<count;j++)
+            {
+                nClasses.Push(i)
+            }
+        }
+    }
+    count = GetArraySize(nClasses)
+    if(!count)
+    {
+        ClearArray(nClasses)
+        return (GetRandomInt(0,100)>40)?0:GetRandomInt(1,NUM_CLASSES-1)
+    }
+    cl = GetArrayCell(nClasses,GetRandomInt(0,count-1))
+    ClearArray(nClasses)
+    delete nClasses
+    return cl
 }
 public float getMaxHealth(id)
 {
