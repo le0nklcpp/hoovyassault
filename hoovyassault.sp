@@ -41,7 +41,8 @@ stock min(a,b)
 }
 #define ValidUser(%1) ((1<=%1<=MaxClients)&&IsClientInGame(%1)&&IsPlayerAlive(%1))
 
-#define MEDIC_HEAL 5 // HP/sec
+#define MEDIC_HEAL 15 // HP/tic
+#define MEDIC_TICK 0.2 // seconds
 #define COMISSAR_OVERHEAL 50.0
 #define COMISSAR_DMGRES 0.9
 #define OFFICER_DMGBONUS 1.1
@@ -109,6 +110,7 @@ public OnPluginStart()
  for(int i=1;i<MaxClients;i++){HoovyClass[i] = HoovyFlags[i] = HoovyRage[i] = 0;if(IsClientInGame(i))doSDKHooks(i);}
  //LoadTranslations("hoovy.phrases")
  CreateTimer(1.0,UpdateHoovies,_, TIMER_REPEAT)
+ CreateTimer(MEDIC_TICK,HealTimer,_,TIMER_REPEAT)
  HookEvent("player_spawn", Event_PlayerSpawn)
  HookEvent("player_death", Event_PlayerDeath, EventHookMode_Pre)
  HookEvent("item_pickup" , Event_ItemPickup)
@@ -219,9 +221,11 @@ public doSDKHooks(client)
  SDKHook(client, SDKHook_GetMaxHealth,OnGetMaxHealth)
  if(IsFakeClient(client))SDKHook(client, SDKHook_WeaponSwitch, OnWeaponSwitch)
 }
-public showMenu(id)
+public ShowMainMenu(id)
 {
- Menu menu = CreateMenu(MenuHandler)
+ if(!ValidUser(id))return
+ CancelClientMenu(id)
+ Menu menu = CreateMenu(MainMenuHandler)
  menu.SetTitle("Hoovy Class menu")
  char strinfo[2]
  strinfo[1] = '\0'
@@ -236,83 +240,91 @@ public showMenu(id)
  menu.ExitButton = true
  menu.Display( id, MENU_TIMEOUT)
 }
-public MenuHandler(Handle menuid, MenuAction action, id, menu_item)
-{ 
+public MainMenuHandler(Handle menuid, MenuAction action, id, menu_item)
+{
  if(action == MenuAction_End)CloseHandle(menuid)
- if(action == MenuAction_Select)
+ else if(action == MenuAction_Select)
  {
   char strinfo[2]
   GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo))
   int result = strinfo[0]
   if(result<NUM_CLASSES)
-   {
+  {
     MadeHisChoice[id] = true
     HoovyClass[id] = result 
     HoovyMaxHealth[id] = getMaxHealth(id)
     SetEntityHealth(id,RoundToFloor(HoovyMaxHealth[id]))
     TF2_RespawnPlayer(id)
     PrintToChat(id,"You will be able to pick other class after death")
-   }
+  }
   else
-   {
+  {
     ShowHelp(id)
-   }
+  }
  }
 }
 public ShowHelp(id)
- {
+{
+  if(!ValidUser(id))return
+  CancelClientMenu(id)
   Menu menu = CreateMenu(HelpHandler)
   menu.SetTitle("Classes information")
   char strinfo[2]
   strinfo[1] = '\0'
   for(int i=0;i<NUM_CLASSES;i++)
-   {  
+  {  
     strinfo[0] = i
     menu.AddItem(strinfo,ClassName[i])
-   }
-  menu.ExitButton = false
-  menu.ExitBackButton = true
-  menu.Display( id, MENU_TIME_FOREVER)
- }
-public HelpHandler(Handle menuid, MenuAction action, id, menu_item)
-{ 
- if(action == MenuAction_Cancel)
-  { 
-   CloseHandle(menuid)
-   if(!MadeHisChoice[id])showMenu(id)
   }
+  menu.ExitButton = true
+  menu.ExitBackButton = true
+  menu.Display( id, MENU_TIMEOUT*3)
+}
+public HelpHandler(Handle menuid, MenuAction action, id, menu_item)
+{
+ if(action == MenuAction_End)CloseHandle(menuid)
+ if(action == MenuAction_Cancel)
+ { 
+   if(!MadeHisChoice[id])ShowMainMenu(id)
+ }
  if(action == MenuAction_Select)
  {
   char strinfo[2]
   GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo))
   ShowClassHelp(id,strinfo[0])
+  CloseHandle(menuid)
  }
 }
 public ShowClassHelp(id,classid)
 {
+  if(!ValidUser(id))return
+  CancelClientMenu(id)
   Menu menu = CreateMenu(ClassHelpHandler)
   menu.SetTitle(ClassName[classid])
   menu.AddItem("1",ClassDescription[classid])
   menu.ExitBackButton = true
   menu.ExitButton = false
-  menu.Display(id , MENU_TIME_FOREVER)
+  menu.Display(id , MENU_TIMEOUT*4)
 }
 public ClassHelpHandler(Handle menuid, MenuAction action, id, menu_item)
-{ 
+{
+ if(action == MenuAction_End)CloseHandle(menuid)
  if(action == MenuAction_Cancel||action == MenuAction_Select)
-  { 
-   CloseHandle(menuid)
-   ShowHelp(id)
-  }
+ {
+     ShowHelp(id)
+ }
+ else ShowMainMenu(id)
 }
 public TryHealing(id)
 {
   HoovyMaxHealth[id] = getMaxHealth(id)
-  if(HoovyFlags[id]&HOOVY_BIT_HEALING)
-   {
-   SetEntityHealth(id,GetClientHealth(id)+MEDIC_HEAL)
-   AttachParticle(id,TF2_GetClientTeam(id) == TFTeam_Red?"healthgained_red":"healthgained_blu","head",_,1.0);
-   }
+  if(HoovyFlags[id]&HOOVY_BIT_HEALING||HoovyClass[id]==HOOVY_MEDIC)
+  {
+   static int clienthealth
+   clienthealth = GetClientHealth(id)+RoundToFloor(MEDIC_HEAL*MEDIC_TICK)
+   SetEntityHealth(id,clienthealth)
+   if(clienthealth<HoovyMaxHealth[id])AttachParticle(id,TF2_GetClientTeam(id) == TFTeam_Red?"healthgained_red":"healthgained_blu","head",_,1.0);
+  }
   if(GetClientHealth(id)>RoundToFloor(HoovyMaxHealth[id]))SetEntityHealth(id,RoundToFloor(HoovyMaxHealth[id]))
 }
 
@@ -377,39 +389,39 @@ public CheckBuffZones()
   {
    if(!HoovyValid[i])continue;
    for(j = 1; j < MaxClients; j++)
-    {
-     if(!HoovyValid[j]||HoovyClass[j] == HOOVY_SOLDIER||HoovyClass[j] == HOOVY_SCOUT||TF2_GetClientTeam(i)!=TF2_GetClientTeam(j))continue;
+   {
+     if(!HoovyValid[j]||HoovyClass[j] == HOOVY_SOLDIER||HoovyClass[j] == HOOVY_SCOUT||TF2_GetClientTeam(i)!=TF2_GetClientTeam(j)||(i==j&&HoovyClass[j]!=HOOVY_TRUMPETER))continue;
      if(GetVectorDistance(HoovyCoords[i],HoovyCoords[j])<=HOOVY_EFFECTS_RADIUS)
-      {
+     {
       switch(HoovyClass[j])
-       {
+      {
         case(HOOVY_MEDIC):
-	 {
+	{
 	 HoovyFlags[i] |= HOOVY_BIT_HEALING
-	 }
+	}
         case(HOOVY_COMISSAR):
-          {
-	   if(i!=j)
-	    {
-            HoovyFlags[i] |= HOOVY_BIT_DMGRES
-	    HoovyFlags[i] |= HOOVY_BIT_OVERHEAL
-	    }
-	  }
+        {
+          HoovyFlags[i] |= HOOVY_BIT_DMGRES
+          HoovyFlags[i] |= HOOVY_BIT_OVERHEAL
+	}
 	case(HOOVY_OFFICER):
-          {
-	   if(i!=j)HoovyFlags[i]|=HOOVY_BIT_DMGBONUS
-	  }
+        {
+	  HoovyFlags[i]|=HOOVY_BIT_DMGBONUS
+	}
         case(HOOVY_TRUMPETER):
-          {
-           if(BannerDeployed[j])TF2_AddCondition(i,TFCond_Buffed,1.1)
-          }
-       }
-     }
+        {
+          if(BannerDeployed[j])TF2_AddCondition(i,TFCond_Buffed,1.1)
+        }
+      }
     }
-   TryHealing(i)
+   }
   }
 }
-
+public Action HealTimer(Handle timer)
+{
+    static int i
+    for(i=1;i<MaxClients;i++)if(ValidUser(i))TryHealing(i)
+}
 public Action Timer_DeleteParticle(Handle:hTimer, any:iRefEnt)
 {
 	new iEntity = EntRefToEntIndex(iRefEnt);
@@ -429,9 +441,9 @@ public Action task_afterspawn(Handle timer, client)
 {
  if(!ValidUser(client))return
  if(!IsFakeClient(client))
-  { 
-  if(!MadeHisChoice[client])showMenu(client)
-  }
+ { 
+  if(!MadeHisChoice[client])ShowMainMenu(client)
+ }
  else HoovyClass[client] = GetRandomInt(0,6)
  if(TF2_GetPlayerClass(client)!=TFClass_Heavy)
    {
