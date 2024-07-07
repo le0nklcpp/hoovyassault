@@ -101,7 +101,7 @@ char ClassName[NUM_CLASSES][]=
 #define HOOVY_BIT_OVERHEAL (1<<3)
 #define HOOVY_BIT_HEALING (1<<4)
 
-#define SOUND_BOOM "sound/items/cart_explode.mp3"
+#define SOUND_BOOM "sound/items/cart_explode.wav"
 #define BOOM_RADIUS 1200.0
 
 
