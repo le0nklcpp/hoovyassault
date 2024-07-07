@@ -71,7 +71,7 @@ enum
  Char_Dmgrespenalty,
  Num_Chars
 }
-float ClassChars[NUM_CLASSES][Num_Chars]={{1.0,1.0,1.0},{1.0,1.0,1.0},{0.5,0.85,1.3},{0.75,1.15,1.15},{0.6,0.6,1.0},{1.0,1.0,1.0},{0.7,1.0,1.0}, {0.4,0.3,1.0} }
+float ClassChars[NUM_CLASSES][Num_Chars]={{1.0,1.0,1.0},{1.0,1.0,1.0},{0.5,0.85,1.3},{0.75,1.15,1.15},{0.6,0.6,1.0},{1.0,1.0,1.0},{0.7,1.0,1.0}, {0.26,0.3,1.0} }
 
 #define BOT_CLASS_LIMIT 2
 
@@ -595,13 +595,13 @@ stock countClass(id,cl)
 stock findMySandwich(id)
 {
     static int entity
-    while ((entity = FindEntityByClassname(entity, "item_healthkit_medium")) != INVALID_ENT_REFERENCE)
+    while ((entity = FindEntityByClassname(entity, "item_healthkit_medium")) != -1)
     {
-        if(GetEntPropEnt(entity,Prop_Send,"m_hOwnerEntity")==id)return entity
+        if(IsValidEntity(entity)&&GetEntPropEnt(entity,Prop_Send,"m_hOwnerEntity")==id)return entity
     }
-    while ((entity = FindEntityByClassname(entity, "item_healthkit_small")) != INVALID_ENT_REFERENCE)
+    while ((entity = FindEntityByClassname(entity, "item_healthkit_small")) != -1)
     {
-        if(GetEntPropEnt(entity,Prop_Send,"m_hOwnerEntity")==id)return entity
+        if(IsValidEntity(entity)&&GetEntPropEnt(entity,Prop_Send,"m_hOwnerEntity")==id)return entity
     }
     return -1
 }
