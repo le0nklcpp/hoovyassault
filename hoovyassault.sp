@@ -24,6 +24,7 @@ int HoovyRage[32] = 0
 float HoovyCoords[32][3] // position
 float HoovyMaxHealth[32]
 bool HoovyValid[32]
+bool HoovySpecialDelivery[32]
 bool MadeHisChoice[32] = false
 bool BannerDeployed[32] = false
 #define HOOVY_EFFECTS_RADIUS 315.0
@@ -202,11 +203,6 @@ public Action Event_PlayerDeath(Handle:hEvent, const String:strEventName[], bool
     if(iVictim>=1&&iVictim<=MaxClients)
     {
         MadeHisChoice[iVictim] = false
-        if(HoovyClass[iVictim]==HOOVY_BOOMER)
-        {
-            PrintToChatAll("An explosive sandwich has been deployed in this area. Time to take cover, probably")
-            CreateTimer(GetURandomFloat()*3.0,ExplosiveSandwichTimer,iVictim)
-        }
     }
 }
 public Action Event_ItemPickup(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
@@ -219,6 +215,7 @@ public Action Event_ItemPickup(Handle:hEvent, const String:strEventName[], bool:
 public Action Event_PlayerSpawn(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
     new client = GetClientOfUserId(GetEventInt(hEvent, "userid"))
+    HoovySpecialDelivery[client] = false
     HoovyMaxHealth[client] = getMaxHealth(client)
     HoovyRage[client] = 0
     BannerDeployed[client] = false
@@ -231,6 +228,7 @@ public Action Event_Resupply(Handle:hEvent, const String:strEventName[], bool:bD
 {
     new client = GetClientOfUserId(GetEventInt(hEvent, "userid"))
     RemoveUnwantedWeapons(client)
+    HoovySpecialDelivery[client] = false
 }
 public Action Event_StealSandwich(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
@@ -247,6 +245,7 @@ public OnClientConnected(id)
     HoovyClass[id] = HOOVY_SOLDIER
     HoovyFlags[id] = 0
     HoovyRage[id] = 0
+    HoovySpecialDelivery[id] = false
     MadeHisChoice[id] = false
 }
 public OnClientPutInServer(client)
@@ -466,6 +465,7 @@ public CheckBuffZones()
 }
 public Action ExplosiveSandwichTimer(Handle timer,int client)
 {
+    HoovySpecialDelivery[client] = false
     static int entity
     entity = findMySandwich(client)
     if(entity==-1)return
@@ -517,8 +517,9 @@ public Action VoiceCommand(client, const String:command[], argc)
 }
 public Action OnPlayerRunCmd(client,&buttons)
 {
-    if((!(buttons&IN_ATTACK2))||HoovyClass[client]!=HOOVY_BOOMER||!ValidUser(client)||getActiveSlot(client)!=TFWeaponSlot_Secondary)return Plugin_Continue
-    //PrintToChatAll("An explosive sandwich has been deployed in this area. Time to take cover, probably.")
+    if((!(buttons&IN_ATTACK2))||HoovyClass[client]!=HOOVY_BOOMER||!ValidUser(client)||getActiveSlot(client)!=TFWeaponSlot_Secondary||HoovySpecialDelivery[client])return Plugin_Continue
+    HoovySpecialDelivery[client] = true
+    PrintToChatAll("An explosive sandwich has been deployed in this area. Time to take cover, probably.")
     CreateTimer(GetURandomFloat()*3.0,ExplosiveSandwichTimer,client)
     EmitSoundToAll(boomer_sounds[GetRandomInt(0,BOOMER_VO_NUM-1)],client)
     return Plugin_Continue
