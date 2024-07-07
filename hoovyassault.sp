@@ -597,6 +597,7 @@ stock countClass(id,cl)
 stock findMySandwich(id)
 {
     static int entity
+    entity = -1
     while ((entity = FindEntityByClassname(entity, "item_healthkit_medium")) != -1)
     {
         if(IsValidEntity(entity)&&HasEntProp(entity,Prop_Send,"m_hOwnerEntity")&&(GetEntPropEnt(entity,Prop_Send,"m_hOwnerEntity")==id))return entity
