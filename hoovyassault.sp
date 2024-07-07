@@ -101,7 +101,7 @@ char ClassName[NUM_CLASSES][]=
 #define HOOVY_BIT_OVERHEAL (1<<3)
 #define HOOVY_BIT_HEALING (1<<4)
 
-#define SOUND_BOOM "sound/items/cart_explode.wav"
+#define SOUND_BOOM "sound/items/cart_explode.mp3"
 #define BOOM_RADIUS 1200.0
 
 
@@ -109,14 +109,14 @@ ConVar meleeOnlyAllowed
 
 #define BOOMER_VO_NUM 8
 char boomer_sounds[BOOMER_VO_NUM][] = {
-"vo/heavy_sandwichtaunt06.wav",
-"vo/heavy_sandwichtaunt10.wav",
-"vo/heavy_sandwichtaunt15.wav",
-"vo/heavy_specialweapon08.wav",
-"vo/heavy_domination15.wav",
-"vo/heavy_award10.wav",
-"vo/heavy_meleeing01.wav",
-"vo/heavy_mvm_bomb_see01.wav"
+"vo/heavy_sandwichtaunt06.mp3",
+"vo/heavy_sandwichtaunt10.mp3",
+"vo/heavy_sandwichtaunt15.mp3",
+"vo/heavy_specialweapon08.mp3",
+"vo/heavy_domination15.mp3",
+"vo/heavy_award10.mp3",
+"vo/heavy_meleeing01.mp3",
+"vo/heavy_mvm_bomb_see01.mp3"
 }
 
 public Plugin myinfo = 
