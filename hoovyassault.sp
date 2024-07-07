@@ -102,7 +102,7 @@ char ClassName[NUM_CLASSES][]=
 #define HOOVY_BIT_HEALING (1<<4)
 
 #define SOUND_BOOM "items/cart_explode.wav"
-#define BOOM_RADIUS 1200.0
+#define BOOM_RADIUS 600.0
 
 
 ConVar meleeOnlyAllowed
@@ -199,7 +199,15 @@ public Action OnWeaponSwitch(int client, int weapon)
 public Action Event_PlayerDeath(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
     int iVictim = GetClientOfUserId(GetEventInt(hEvent, "userid"))
-    if(iVictim>=1&&iVictim<=MaxClients)MadeHisChoice[iVictim] = false
+    if(iVictim>=1&&iVictim<=MaxClients)
+    {
+        MadeHisChoice[iVictim] = false
+        if(HoovyClass[iVictim]==HOOVY_BOOMER)
+        {
+            PrintToChatAll("An explosive sandwich has been deployed in this area. Time to take cover, probably")
+            CreateTimer(GetURandomFloat()*3.0,ExplosiveSandwichTimer,iVictim)
+        }
+    }
 }
 public Action Event_ItemPickup(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
@@ -458,7 +466,6 @@ public CheckBuffZones()
 }
 public Action ExplosiveSandwichTimer(Handle timer,int client)
 {
-    if(!ValidUser(client))return
     static int entity
     entity = findMySandwich(client)
     if(entity==-1)return
@@ -512,7 +519,7 @@ public Action OnPlayerRunCmd(client,&buttons)
 {
     if((!(buttons&IN_ATTACK2))||HoovyClass[client]!=HOOVY_BOOMER||!ValidUser(client)||getActiveSlot(client)!=TFWeaponSlot_Secondary)return Plugin_Continue
     //PrintToChatAll("An explosive sandwich has been deployed in this area. Time to take cover, probably.")
-    CreateTimer(float(GetRandomInt(1,3)),ExplosiveSandwichTimer,client)
+    CreateTimer(GetURandomFloat()*3.0,ExplosiveSandwichTimer,client)
     EmitSoundToAll(boomer_sounds[GetRandomInt(0,BOOMER_VO_NUM-1)],client)
     return Plugin_Continue
 }
@@ -588,7 +595,11 @@ stock countClass(id,cl)
 stock findMySandwich(id)
 {
     static int entity
-    while ((entity = FindEntityByClassname(entity, "weapon_lunchbox")) != INVALID_ENT_REFERENCE)
+    while ((entity = FindEntityByClassname(entity, "item_healthkit_medium")) != INVALID_ENT_REFERENCE)
+    {
+        if(GetEntPropEnt(entity,Prop_Send,"m_hOwnerEntity")==id)return entity
+    }
+    while ((entity = FindEntityByClassname(entity, "item_healthkit_small")) != INVALID_ENT_REFERENCE)
     {
         if(GetEntPropEnt(entity,Prop_Send,"m_hOwnerEntity")==id)return entity
     }
