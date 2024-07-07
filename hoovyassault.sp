@@ -61,6 +61,7 @@ HOOVY_OFFICER,// +10% damage bonus for allies,+15% damage bonus for user,BUT -25
 HOOVY_SCOUT, // accelerated speed,every healthkit fully regenerates you,BUT: -40% health, -40% damage penalty
 HOOVY_BOXER, // Kills anyone with one punch, but anyone can kill him with one punch
 HOOVY_TRUMPETER,
+HOOVY_BOOMER,
 NUM_CLASSES
 }
 enum
@@ -70,7 +71,7 @@ enum
  Char_Dmgrespenalty,
  Num_Chars
 }
-float ClassChars[NUM_CLASSES][Num_Chars]={{1.0,1.0,1.0},{1.0,1.0,1.0},{0.5,0.85,1.3},{0.75,1.15,1.15},{0.6,0.6,1.0},{1.0,1.0,1.0},{0.7,1.0,1.0} }
+float ClassChars[NUM_CLASSES][Num_Chars]={{1.0,1.0,1.0},{1.0,1.0,1.0},{0.5,0.85,1.3},{0.75,1.15,1.15},{0.6,0.6,1.0},{1.0,1.0,1.0},{0.7,1.0,1.0}, {0.4,0.3,1.0} }
 
 #define BOT_CLASS_LIMIT 2
 
@@ -81,7 +82,8 @@ char ClassDescription[NUM_CLASSES][]={
 " +10% dmg bonus for allies,+15% for you, BUT -15% HP,-15% dmg res for you",
 "increased speed, BUT -40% HP,-40% dmg penalty",
 "kills with one punch, dies from one punch",
-"Activate Buff Banner by using POOTIS (press x then press 5), BUT always marked for death,-30% health"
+"Activate Buff Banner by using POOTIS (press x then press 5), BUT always marked for death,-30% health",
+"Now your most terrifying weapon is your sandwich"
 }
 char ClassName[NUM_CLASSES][]=
 {
@@ -91,180 +93,215 @@ char ClassName[NUM_CLASSES][]=
 "Officer",
 "Scout",
 "Boxer",
-"Trumpeter"
+"Trumpeter",
+"Boomer"
 }
 #define HOOVY_BIT_DMGBONUS (1<<1)
 #define HOOVY_BIT_DMGRES (1<<2)
 #define HOOVY_BIT_OVERHEAL (1<<3)
 #define HOOVY_BIT_HEALING (1<<4)
 
+#define SOUND_BOOM "sound/items/cart_explode.wav"
+#define BOOM_RADIUS 1200.0
+
+
 ConVar meleeOnlyAllowed
+
+#define BOOMER_VO_NUM 8
+char boomer_sounds[BOOMER_VO_NUM][] = {
+"vo/heavy_sandwichtaunt06.wav",
+"vo/heavy_sandwichtaunt10.wav",
+"vo/heavy_sandwichtaunt15.wav",
+"vo/heavy_specialweapon08.wav",
+"vo/heavy_domination15.wav",
+"vo/heavy_award10.wav",
+"vo/heavy_meleeing01.wav",
+"vo/heavy_mvm_bomb_see01.wav"
+}
 
 public Plugin myinfo = 
 {
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "0.0.10",
+ version = "0.0.12",
  url = ""
 };
 public OnPluginStart()
 {
- for(int i=1;i<MaxClients;i++){HoovyClass[i] = HoovyFlags[i] = HoovyRage[i] = 0;if(IsClientInGame(i))doSDKHooks(i);}
- //LoadTranslations("hoovy.phrases")
- CreateTimer(1.0,UpdateHoovies,_, TIMER_REPEAT)
- CreateTimer(MEDIC_TICK,HealTimer,_,TIMER_REPEAT)
- HookEvent("player_spawn", Event_PlayerSpawn)
- HookEvent("player_death", Event_PlayerDeath, EventHookMode_Pre)
- HookEvent("item_pickup" , Event_ItemPickup)
- HookEvent("post_inventory_application" , Event_Resupply)
- AddCommandListener(VoiceCommand , "voicemenu")
- meleeOnlyAllowed = CreateConVar("hassault_melee_only","0","Enable/disable melee mode")
+    for(int i=1;i<MaxClients;i++){HoovyClass[i] = HoovyFlags[i] = HoovyRage[i] = 0;if(IsClientInGame(i))doSDKHooks(i);}
+    //LoadTranslations("hoovy.phrases")
+    CreateTimer(1.0,UpdateHoovies,_, TIMER_REPEAT)
+    CreateTimer(MEDIC_TICK,HealTimer,_,TIMER_REPEAT)
+    HookEvent("player_spawn", Event_PlayerSpawn)
+    HookEvent("player_death", Event_PlayerDeath, EventHookMode_Pre)
+    HookEvent("item_pickup" , Event_ItemPickup)
+    HookEvent("post_inventory_application" , Event_Resupply)
+    HookEvent("player_stealsandvich", Event_StealSandwich)
+    AddCommandListener(VoiceCommand , "voicemenu")
+    meleeOnlyAllowed = CreateConVar("hassault_melee_only","0","Enable/disable melee mode")
+}
+public OnMapStart()
+{
+    PrecacheSound(SOUND_BOOM)
+    for(int i = 0 ; i < BOOMER_VO_NUM; i++)
+    {
+        PrecacheSound(boomer_sounds[i])
+    }
 }
 public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
 {
-	if(!ValidUser(iAttacker)||!ValidUser(iVictim))return Plugin_Continue
-	if(HoovyFlags[iAttacker]&HOOVY_BIT_DMGBONUS)damage *= OFFICER_DMGBONUS
-	if(HoovyFlags[iVictim]&HOOVY_BIT_DMGRES)damage  *= COMISSAR_DMGRES
-	damage = damage * ClassChars[HoovyClass[iVictim]][Char_Dmgrespenalty] * ClassChars[HoovyClass[iAttacker]][Char_Dmgbonus]
-	if(HoovyClass[iVictim]==HOOVY_BOXER||HoovyClass[iAttacker]==HOOVY_BOXER)
-         {
-	  if(getActiveSlot(iAttacker)==TFWeaponSlot_Melee)damage*=300.0
-	 }
-        if(HoovyClass[iAttacker]==HOOVY_TRUMPETER)
-         {
-          HoovyRage[iAttacker] = min(HoovyRage[iAttacker]+RoundToFloor(damage), TRUMPETER_DAMAGENEEDED)
-         }
-	return Plugin_Changed
+    if(!ValidUser(iAttacker)||!ValidUser(iVictim))return Plugin_Continue
+    if(HoovyFlags[iAttacker]&HOOVY_BIT_DMGBONUS)damage *= OFFICER_DMGBONUS
+    if(HoovyFlags[iVictim]&HOOVY_BIT_DMGRES)damage  *= COMISSAR_DMGRES
+    damage = damage * ClassChars[HoovyClass[iVictim]][Char_Dmgrespenalty] * ClassChars[HoovyClass[iAttacker]][Char_Dmgbonus]
+    if(HoovyClass[iVictim]==HOOVY_BOXER||HoovyClass[iAttacker]==HOOVY_BOXER)
+    {
+        if(getActiveSlot(iAttacker)==TFWeaponSlot_Melee)damage*=300.0
+    }
+    if(HoovyClass[iAttacker]==HOOVY_TRUMPETER)
+    {
+        HoovyRage[iAttacker] = min(HoovyRage[iAttacker]+RoundToFloor(damage), TRUMPETER_DAMAGENEEDED)
+    }
+    return Plugin_Changed
 }
 public Action OnGetMaxHealth(int client, int &maxHealth)
 {
- maxHealth = RoundToFloor(HoovyMaxHealth[client])
- return Plugin_Changed
+    maxHealth = RoundToFloor(HoovyMaxHealth[client])
+    return Plugin_Changed
 }
 public Action OnWeaponSwitch(int client, int weapon)
 {
- if(HoovyClass[client] == HOOVY_MEDIC||meleeOnlyAllowed.BoolValue)
-  {
-   if(IsValidEntity(weapon))
+    if(HoovyClass[client] == HOOVY_MEDIC||meleeOnlyAllowed.BoolValue)
     {
-    static int melee
-    melee = GetPlayerWeaponSlot(client,TFWeaponSlot_Melee)
-    if(weapon==melee)return Plugin_Continue 
+        if(IsValidEntity(weapon))
+        {
+            static int melee
+            melee = GetPlayerWeaponSlot(client,TFWeaponSlot_Melee)
+            if(weapon==melee)return Plugin_Continue 
+        }
+        return Plugin_Handled
     }
-   return Plugin_Handled
-  }
- static int machinegun
- machinegun = GetPlayerWeaponSlot(client, TFWeaponSlot_Primary)
- if(weapon == machinegun)
-  {
+    static int machinegun
+    machinegun = GetPlayerWeaponSlot(client, TFWeaponSlot_Primary)
+    if(weapon == machinegun)
+    {
   /*static int shotgun, melee, active
-  shotgun = GetPlayerWeaponSlot(client, TFWeaponSlot_Secondary)
-  melee = GetPlayerWeaponSlot(client, TFWeaponSlot_Melee)
-  active = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon")
-  if(active == shotgun)SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", melee)
-  else SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", shotgun)*/
-  return Plugin_Handled
-  }
- return Plugin_Continue
+    shotgun = GetPlayerWeaponSlot(client, TFWeaponSlot_Secondary)
+    melee = GetPlayerWeaponSlot(client, TFWeaponSlot_Melee)
+    active = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon")
+    if(active == shotgun)SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", melee)
+    else SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", shotgun)*/
+    return Plugin_Handled
+    }
+    return Plugin_Continue
 }
 public Action Event_PlayerDeath(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
- int iVictim = GetClientOfUserId(GetEventInt(hEvent, "userid"))
- if(iVictim>=1&&iVictim<=MaxClients)MadeHisChoice[iVictim] = false
+    int iVictim = GetClientOfUserId(GetEventInt(hEvent, "userid"))
+    if(iVictim>=1&&iVictim<=MaxClients)MadeHisChoice[iVictim] = false
 }
 public Action Event_ItemPickup(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
- int user = GetClientOfUserId(GetEventInt(hEvent, "userid"))
- static char itemid[28]
- if(HoovyClass[user] != HOOVY_SCOUT)return
- GetEventString(hEvent,"item",itemid,sizeof itemid)
- if(StrContains(itemid,"medkit",false)!=-1)SetEntityHealth(user,RoundToFloor(300.0*ClassChars[HOOVY_SCOUT][Char_Maxhealth]))
+    int user = GetClientOfUserId(GetEventInt(hEvent, "userid"))
+    static char itemid[28]
+    if(HoovyClass[user] != HOOVY_SCOUT)return
+    if(StrContains(itemid,"medkit",false)!=-1)SetEntityHealth(user,RoundToFloor(300.0*ClassChars[HOOVY_SCOUT][Char_Maxhealth]))
 }
 public Action Event_PlayerSpawn(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
-	new client = GetClientOfUserId(GetEventInt(hEvent, "userid"))
-	HoovyMaxHealth[client] = getMaxHealth(client)
-        HoovyRage[client] = 0
-        BannerDeployed[client] = false
-	if(ValidUser(client))
-	 {
-	 CreateTimer(2.0,task_afterspawn,client)
-	 }
+    new client = GetClientOfUserId(GetEventInt(hEvent, "userid"))
+    HoovyMaxHealth[client] = getMaxHealth(client)
+    HoovyRage[client] = 0
+    BannerDeployed[client] = false
+    if(ValidUser(client))
+    {
+        CreateTimer(2.0,task_afterspawn,client)
+    }
 }
 public Action Event_Resupply(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
-        new client = GetClientOfUserId(GetEventInt(hEvent, "userid"))
-	RemoveUnwantedWeapons(client)
+    new client = GetClientOfUserId(GetEventInt(hEvent, "userid"))
+    RemoveUnwantedWeapons(client)
+}
+public Action Event_StealSandwich(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
+{
+    int owner = GetClientOfUserId(GetEventInt(hEvent,"owner"))
+    int target = GetClientOfUserId(GetEventInt(hEvent,"target"))
+    if(HoovyClass[owner]==HOOVY_BOOMER)// I have a new way to kill cowards!
+    {
+        PrintToChatAll("Ooops, somebody just ate the wrong sandwich")
+        ExplodeSandwich(target,owner)
+    }
 }
 public OnClientConnected(id)
 {
- HoovyClass[id] = HOOVY_SOLDIER
- HoovyFlags[id] = 0
- HoovyRage[id] = 0
- MadeHisChoice[id] = false
+    HoovyClass[id] = HOOVY_SOLDIER
+    HoovyFlags[id] = 0
+    HoovyRage[id] = 0
+    MadeHisChoice[id] = false
 }
 public OnClientPutInServer(client)
 {
- doSDKHooks(client)
+    doSDKHooks(client)
 }
 public void OnClientDisconnect(int client)
 {
- removeSDKHooks(client)
+    removeSDKHooks(client)
 }
 public removeSDKHooks(client)
 {
- SDKUnhook(client, SDKHook_OnTakeDamage, OnTakeDamage)
- SDKUnhook(client, SDKHook_GetMaxHealth,OnGetMaxHealth)
- if(IsFakeClient(client))SDKUnhook(client, SDKHook_WeaponSwitch, OnWeaponSwitch)
+    SDKUnhook(client, SDKHook_OnTakeDamage, OnTakeDamage)
+    SDKUnhook(client, SDKHook_GetMaxHealth,OnGetMaxHealth)
+    if(IsFakeClient(client))SDKUnhook(client, SDKHook_WeaponSwitch, OnWeaponSwitch)
 }
 public doSDKHooks(client)
 {
- SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage)
- SDKHook(client, SDKHook_GetMaxHealth,OnGetMaxHealth)
- if(IsFakeClient(client))SDKHook(client, SDKHook_WeaponSwitch, OnWeaponSwitch)
+    SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage)
+    SDKHook(client, SDKHook_GetMaxHealth,OnGetMaxHealth)
+    if(IsFakeClient(client))SDKHook(client, SDKHook_WeaponSwitch, OnWeaponSwitch)
 }
 public ShowMainMenu(id)
 {
- if(!ValidUser(id))return
- CancelClientMenu(id)
- Menu menu = CreateMenu(MainMenuHandler)
- menu.SetTitle("Hoovy Class menu")
- char strinfo[2]
- strinfo[1] = '\0'
- for(int i=0;i<NUM_CLASSES;i++)
-  {  
-   strinfo[0] = i
-   menu.AddItem(strinfo,ClassName[i])
-  }
- strinfo[0]++
- menu.AddItem(strinfo ,"Help")
- menu.ExitBackButton = false
- menu.ExitButton = true
- menu.Display( id, MENU_TIMEOUT)
+    if(!ValidUser(id))return
+    CancelClientMenu(id)
+    Menu menu = CreateMenu(MainMenuHandler)
+    menu.SetTitle("Hoovy Class menu")
+    char strinfo[2]
+    strinfo[1] = '\0'
+    for(int i=0;i<NUM_CLASSES;i++)
+    {  
+      strinfo[0] = i
+      menu.AddItem(strinfo,ClassName[i])
+    }
+    strinfo[0]++
+    menu.AddItem(strinfo ,"Help")
+    menu.ExitBackButton = false
+    menu.ExitButton = true
+    menu.Display( id, MENU_TIMEOUT)
 }
 public MainMenuHandler(Handle menuid, MenuAction action, id, menu_item)
 {
- if(action == MenuAction_End)CloseHandle(menuid)
- else if(action == MenuAction_Select)
- {
-  char strinfo[2]
-  GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo))
-  int result = strinfo[0]
-  if(result<NUM_CLASSES)
-  {
-    MadeHisChoice[id] = true
-    HoovyClass[id] = result 
-    HoovyMaxHealth[id] = getMaxHealth(id)
-    SetEntityHealth(id,RoundToFloor(HoovyMaxHealth[id]))
-    TF2_RespawnPlayer(id)
-    PrintToChat(id,"You will be able to pick other class after death")
-  }
-  else
-  {
-    ShowHelp(id)
-  }
- }
+    if(action == MenuAction_End)CloseHandle(menuid)
+    else if(action == MenuAction_Select)
+    {
+        char strinfo[2]
+        GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo))
+        int result = strinfo[0]
+        if(result<NUM_CLASSES)
+        {
+            MadeHisChoice[id] = true
+            HoovyClass[id] = result 
+            HoovyMaxHealth[id] = getMaxHealth(id)
+            SetEntityHealth(id,RoundToFloor(HoovyMaxHealth[id]))
+            TF2_RespawnPlayer(id)
+            PrintToChat(id,"You will be able to pick other class after death")
+        }
+        else
+        {
+            ShowHelp(id)
+        }
+    }
 }
 public ShowHelp(id)
 {
@@ -334,7 +371,7 @@ public HoovyBasicOperations()
 { 
  static int i
  for(i = 1;i < MaxClients;i++)
-  {
+ {
   if(!ValidUser(i))
    {
     HoovyValid[i] = false
@@ -347,11 +384,11 @@ public HoovyBasicOperations()
   if(IsFakeClient(i)&&(HoovyClass[i]==HOOVY_MEDIC||meleeOnlyAllowed.BoolValue))setActiveSlot(i,TFWeaponSlot_Melee) // force medic bot to use melee
   if(HoovyClass[i]==HOOVY_SCOUT)TF2_AddCondition(i, TFCond_SpeedBuffAlly, 1.1)
   if(HoovyClass[i]==HOOVY_BOXER)
-   {
-    if(getItemIndex(GetPlayerWeaponSlot(i, TFWeaponSlot_Melee))==43)TF2_AddCondition(i,TFCond_MarkedForDeathSilent,1.1)
-   }
+  {
+      if(getItemIndex(GetPlayerWeaponSlot(i, TFWeaponSlot_Melee))==43)TF2_AddCondition(i,TFCond_MarkedForDeathSilent,1.1)
+  }
   if(HoovyClass[i]==HOOVY_TRUMPETER)
-   { 
+  {
     TF2_AddCondition(i,TFCond_MarkedForDeathSilent,1.1)
     Handle hHudText = CreateHudSynchronizer()
     SetHudTextParams(-1.0, 0.8, 0.4, 255, 0, 0, 255)
@@ -359,29 +396,29 @@ public HoovyBasicOperations()
     CloseHandle(hHudText);
     if(!BannerDeployed[i]&&HoovyRage[i]==TRUMPETER_DAMAGENEEDED&&IsFakeClient(i))BannerDeployed[i] = true
     if(BannerDeployed[i])
-     {
+    {
       HoovyRage[i]-=(TRUMPETER_DAMAGENEEDED/TRUMPETER_BUFFTIME)
       if(HoovyRage[i]<=0)
-       {
+      {
         BannerDeployed[i] = false
         HoovyRage[i] = 0
-       }
-     }
-   }
+      }
+    }
   }
+ }
 }
 public RemoveUnwantedWeapons(i)
 {
+   static int weapon
    if(!IsFakeClient(i))
    {
-   if(getActiveSlot(i)==TFWeaponSlot_Primary)setActiveSlot(i,HoovyClass[i]==HOOVY_MEDIC?TFWeaponSlot_Melee:TFWeaponSlot_Secondary)
-   TF2_RemoveWeaponSlot(i,TFWeaponSlot_Primary) // Anti-repick protection
-   if(HoovyClass[i]==HOOVY_MEDIC||meleeOnlyAllowed.BoolValue)
-    {
-    static int weapon
-    weapon = GetPlayerWeaponSlot(i, TFWeaponSlot_Secondary)
-    if(weapon!=-1&&!IsFood(weapon))TF2_RemoveWeaponSlot(i,TFWeaponSlot_Secondary)
-    }
+       if(getActiveSlot(i)==TFWeaponSlot_Primary)setActiveSlot(i,HoovyClass[i]==HOOVY_MEDIC?TFWeaponSlot_Melee:TFWeaponSlot_Secondary)
+       TF2_RemoveWeaponSlot(i,TFWeaponSlot_Primary) // Anti-repick protection
+       if(HoovyClass[i]==HOOVY_MEDIC||HoovyClass[i]==HOOVY_BOOMER||meleeOnlyAllowed.BoolValue)
+       {
+           weapon = GetPlayerWeaponSlot(i, TFWeaponSlot_Secondary)
+           if(weapon!=-1&&!IsFood(weapon))TF2_RemoveWeaponSlot(i,TFWeaponSlot_Secondary)
+       }
    }
 }
 public CheckBuffZones()
@@ -418,6 +455,14 @@ public CheckBuffZones()
     }
    }
   }
+}
+public Action ExplosiveSandwichTimer(Handle timer,int client)
+{
+    if(!ValidUser(client))return
+    static int entity
+    entity = findMySandwich(client)
+    if(entity==-1)return
+    ExplodeSandwich(entity,client)
 }
 public Action HealTimer(Handle timer)
 {
@@ -462,6 +507,14 @@ public Action VoiceCommand(client, const String:command[], argc)
  TrimString(Numbers)
  if(StrEqual(Numbers,"1 4"))BannerDeployed[client] = true
  return Plugin_Continue
+}
+public Action OnPlayerRunCmd(client,&buttons)
+{
+    if((!(buttons&IN_ATTACK2))||HoovyClass[client]!=HOOVY_BOOMER||!ValidUser(client)||getActiveSlot(client)!=TFWeaponSlot_Secondary)return Plugin_Continue
+    //PrintToChatAll("An explosive sandwich has been deployed in this area. Time to take cover, probably.")
+    CreateTimer(float(GetRandomInt(1,3)),ExplosiveSandwichTimer,client)
+    EmitSoundToAll(boomer_sounds[GetRandomInt(0,BOOMER_VO_NUM-1)],client)
+    return Plugin_Continue
 }
 AttachParticle(iEntity, const String:strParticleEffect[], const String:strAttachPoint[]="", Float:flOffsetZ=0.0, Float:flSelfDestruct=0.0)
 {
@@ -532,6 +585,15 @@ stock countClass(id,cl)
     }
     return ctr
 }
+stock findMySandwich(id)
+{
+    static int entity
+    while ((entity = FindEntityByClassname(entity, "weapon_lunchbox")) != INVALID_ENT_REFERENCE)
+    {
+        if(GetEntPropEnt(entity,Prop_Send,"m_hOwnerEntity")==id)return entity
+    }
+    return -1
+}
 stock PickBotClass(id)
 {
     static int i,j,cl,count
@@ -558,11 +620,29 @@ stock PickBotClass(id)
     delete nClasses
     return cl
 }
+stock ExplodeSandwich(int targetent,int owner)
+{
+    static int i
+    static float pos[3]
+    static float where[3]
+    GetEntPropVector(targetent, Prop_Send, "m_vecOrigin", where)
+    EmitSoundToAll(SOUND_BOOM,SOUND_FROM_WORLD,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL,-1,where)
+    AttachParticle(targetent,"hightower_explosion","",0.0,10.0)
+    for(i=0;i<MaxClients;i++)
+    {
+        if(!ValidUser(i)||(i!=owner&&TF2_GetClientTeam(i)==TF2_GetClientTeam(owner)))continue;
+        GetClientAbsOrigin(i,pos)
+        if(GetVectorDistance(pos,where)<BOOM_RADIUS) // if he shoots you, you'll probably die
+        {
+            SDKHooks_TakeDamage(i, 0, owner, 320.0, DMG_PREVENT_PHYSICS_FORCE|DMG_CRUSH|DMG_ALWAYSGIB)
+        }
+    }
+}
 public float getMaxHealth(id)
 {
-  static float newmaxhealth 
-  newmaxhealth = 300.0
-  newmaxhealth *= ClassChars[HoovyClass[id]][Char_Maxhealth]
-  if(HoovyFlags[id]&HOOVY_BIT_OVERHEAL)newmaxhealth += COMISSAR_OVERHEAL
-  return newmaxhealth
+    static float newmaxhealth 
+    newmaxhealth = 300.0
+    newmaxhealth *= ClassChars[HoovyClass[id]][Char_Maxhealth]
+    if(HoovyFlags[id]&HOOVY_BIT_OVERHEAL)newmaxhealth += COMISSAR_OVERHEAL
+    return newmaxhealth
 }
