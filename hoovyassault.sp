@@ -519,8 +519,9 @@ public Action OnPlayerRunCmd(client,&buttons)
 {
     if((!(buttons&IN_ATTACK2))||HoovyClass[client]!=HOOVY_BOOMER||!ValidUser(client)||getActiveSlot(client)!=TFWeaponSlot_Secondary||HoovySpecialDelivery[client])return Plugin_Continue
     HoovySpecialDelivery[client] = true
+    float expltime = GetURandomFloat()*3.0
     PrintToChatAll("An explosive sandwich has been deployed in this area. Time to take cover, probably.")
-    CreateTimer(GetURandomFloat()*3.0,ExplosiveSandwichTimer,client)
+    CreateTimer(expltime>1.0?expltime:1.0,ExplosiveSandwichTimer,client)
     EmitSoundToAll(boomer_sounds[GetRandomInt(0,BOOMER_VO_NUM-1)],client)
     return Plugin_Continue
 }
@@ -598,11 +599,11 @@ stock findMySandwich(id)
     static int entity
     while ((entity = FindEntityByClassname(entity, "item_healthkit_medium")) != -1)
     {
-        if(IsValidEntity(entity)&&GetEntPropEnt(entity,Prop_Send,"m_hOwnerEntity")==id)return entity
+        if(IsValidEntity(entity)&&HasEntProp(entity,Prop_Send,"m_hOwnerEntity")&&(GetEntPropEnt(entity,Prop_Send,"m_hOwnerEntity")==id))return entity
     }
     while ((entity = FindEntityByClassname(entity, "item_healthkit_small")) != -1)
     {
-        if(IsValidEntity(entity)&&GetEntPropEnt(entity,Prop_Send,"m_hOwnerEntity")==id)return entity
+        if(IsValidEntity(entity)&&HasEntProp(entity,Prop_Send,"m_hOwnerEntity")&&(GetEntPropEnt(entity,Prop_Send,"m_hOwnerEntity")==id))return entity
     }
     return -1
 }
@@ -638,6 +639,7 @@ stock ExplodeSandwich(int targetent,int owner)
     static float pos[3]
     static float where[3]
     GetEntPropVector(targetent, Prop_Send, "m_vecOrigin", where)
+    //if(targetent>=MaxClients)AcceptEntityInput(targetent, "Kill")
     EmitSoundToAll(SOUND_BOOM,SOUND_FROM_WORLD,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL,-1,where)
     AttachParticle(targetent,"hightower_explosion","",0.0,10.0)
     for(i=0;i<MaxClients;i++)
