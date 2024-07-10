@@ -18,15 +18,16 @@
 #include <menus>
 #include <sdkhooks>
 #include <string>
-int HoovyClass[32]
-int HoovyFlags[32] // bitsum
-int HoovyRage[32] = 0
-float HoovyCoords[32][3] // position
-float HoovyMaxHealth[32]
-bool HoovyValid[32]
-bool HoovySpecialDelivery[32]
-bool MadeHisChoice[32] = false
-bool BannerDeployed[32] = false
+int HoovyClass[MAXPLAYERS]
+int HoovyFlags[MAXPLAYERS] // bitsum
+int HoovyRage[MAXPLAYERS] = 0
+float HoovyCoords[MAXPLAYERS][3] // position
+float HoovyMaxHealth[MAXPLAYERS]
+int HoovyDeaths[2] = 0 // 0 = RED, 1 = BLU
+bool HoovyValid[MAXPLAYERS]
+bool HoovySpecialDelivery[MAXPLAYERS]
+bool MadeHisChoice[MAXPLAYERS] = false
+bool BannerDeployed[MAXPLAYERS] = false
 #define HOOVY_EFFECTS_RADIUS 315.0
 #define MENU_TIMEOUT 4
 
@@ -72,19 +73,19 @@ enum
  Char_Dmgrespenalty,
  Num_Chars
 }
-float ClassChars[NUM_CLASSES][Num_Chars]={{1.0,1.0,1.0},{1.0,1.0,1.0},{0.5,0.85,1.3},{0.75,1.15,1.15},{0.6,0.6,1.0},{1.0,1.0,1.0},{0.7,1.0,1.0}, {0.26,0.3,1.0} }
+float ClassChars[NUM_CLASSES][Num_Chars]={{1.25,1.0,1.0},{1.0,1.0,1.0},{0.5,0.85,1.3},{0.75,1.20,1.15},{0.6,0.6,1.0},{1.0,1.0,1.0},{0.7,1.0,1.0}, {0.26,0.3,1.0} }
 
 #define BOT_CLASS_LIMIT 2
 
 char ClassDescription[NUM_CLASSES][]={
-"no positive or negative effects",
+"Health bonus +75 HP",
 "Healing allies,BUT may use only melee",
 "+50 max HP,+10% dmg res for allies, BUT -50% HP,-30% dmg res,-15% dmg penalty for you",
 " +10% dmg bonus for allies,+15% for you, BUT -15% HP,-15% dmg res for you",
 "increased speed, BUT -40% HP,-40% dmg penalty",
 "kills with one punch, dies from one punch",
 "Activate Buff Banner by using POOTIS (press x then press 5), BUT always marked for death,-30% health",
-"Now your most terrifying weapon is your sandwich"
+"Now your most terrifying weapon is your sandwich",
 }
 char ClassName[NUM_CLASSES][]=
 {
@@ -141,6 +142,7 @@ public OnPluginStart()
     HookEvent("player_stealsandvich", Event_StealSandwich)
     AddCommandListener(VoiceCommand , "voicemenu")
     meleeOnlyAllowed = CreateConVar("hassault_melee_only","0","Enable/disable melee mode")
+    HoovyDeaths[0] = HoovyDeaths[1] = 0
 }
 public OnMapStart()
 {
@@ -203,12 +205,15 @@ public Action Event_PlayerDeath(Handle:hEvent, const String:strEventName[], bool
     if(iVictim>=1&&iVictim<=MaxClients)
     {
         MadeHisChoice[iVictim] = false
+        if(TF2_GetClientTeam(iVictim)==TFTeam_Red)HoovyDeaths[0]++
+        else HoovyDeaths[1]++
     }
 }
 public Action Event_ItemPickup(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
     int user = GetClientOfUserId(GetEventInt(hEvent, "userid"))
     static char itemid[28]
+    GetEventString(hEvent,"item",itemid,sizeof itemid)
     if(HoovyClass[user] != HOOVY_SCOUT)return
     if(StrContains(itemid,"medkit",false)!=-1)SetEntityHealth(user,RoundToFloor(300.0*ClassChars[HOOVY_SCOUT][Char_Maxhealth]))
 }
@@ -638,6 +643,7 @@ stock ExplodeSandwich(int targetent,int owner)
 {
     static int i
     static float pos[3]
+    static float dist
     static float where[3]
     GetEntPropVector(targetent, Prop_Send, "m_vecOrigin", where)
     //if(targetent>=MaxClients)AcceptEntityInput(targetent, "Kill")
@@ -647,9 +653,10 @@ stock ExplodeSandwich(int targetent,int owner)
     {
         if(!ValidUser(i)||(i!=owner&&TF2_GetClientTeam(i)==TF2_GetClientTeam(owner)))continue;
         GetClientAbsOrigin(i,pos)
-        if(GetVectorDistance(pos,where)<BOOM_RADIUS) // if he shoots you, you'll probably die
+        dist = GetVectorDistance(pos,where)
+        if(dist<BOOM_RADIUS) // if he shoots you, you'll probably die
         {
-            SDKHooks_TakeDamage(i, 0, owner, 320.0, DMG_PREVENT_PHYSICS_FORCE|DMG_CRUSH|DMG_ALWAYSGIB)
+            SDKHooks_TakeDamage(i, 0, owner, dist<(BOOM_RADIUS/2.0)?320.0:(320.0*dist/BOOM_RADIUS), DMG_PREVENT_PHYSICS_FORCE|DMG_CRUSH|DMG_ALWAYSGIB)
         }
     }
 }
