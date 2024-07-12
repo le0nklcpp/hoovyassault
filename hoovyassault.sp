@@ -24,7 +24,7 @@ int HoovyRage[MAXPLAYERS] = 0
 float HoovyCoords[MAXPLAYERS][3] // position
 float HoovyMaxHealth[MAXPLAYERS]
 int HoovyDeaths[2] = 0 // 0 = RED, 1 = BLU
-bool HoovyValid[MAXPLAYERS]
+bool HoovyValid[MAXPLAYERS] = false
 bool HoovySpecialDelivery[MAXPLAYERS] = false
 bool MadeHisChoice[MAXPLAYERS] = false
 bool BannerDeployed[MAXPLAYERS] = false
@@ -307,6 +307,7 @@ public OnClientPutInServer(client)
 public void OnClientDisconnect(int client)
 {
     removeSDKHooks(client)
+    HoovyValid[client] = false
 }
 public removeSDKHooks(client)
 {
