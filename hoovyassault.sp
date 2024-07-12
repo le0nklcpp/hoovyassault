@@ -629,6 +629,7 @@ stock PickBotClass(id)
             if(i==HOOVY_MEDIC&&cl==0)
             {
                 ClearArray(nClasses)
+                delete nClasses
                 return HOOVY_MEDIC
             }
             count = GetRandomInt(0,BOT_CLASS_LIMIT)
