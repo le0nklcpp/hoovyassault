@@ -503,7 +503,11 @@ public CheckBuffZones()
 	        }
                 case(HOOVY_TRUMPETER):
                 {
-                if(BannerDeployed[j])TF2_AddCondition(i,TFCond_Buffed,1.1)
+                    if(BannerDeployed[j])
+                    {
+                        TF2_AddCondition(i,TFCond_DefenseBuffed,1.1)
+                        TF2_AddCondition(i,TFCond_CritOnFirstBlood,1.1)
+                    }
                 }
             }
         }
