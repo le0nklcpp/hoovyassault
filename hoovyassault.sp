@@ -25,7 +25,7 @@ float HoovyCoords[MAXPLAYERS][3] // position
 float HoovyMaxHealth[MAXPLAYERS]
 int HoovyDeaths[2] = 0 // 0 = RED, 1 = BLU
 bool HoovyValid[MAXPLAYERS]
-bool HoovySpecialDelivery[MAXPLAYERS]
+bool HoovySpecialDelivery[MAXPLAYERS] = false
 bool MadeHisChoice[MAXPLAYERS] = false
 bool BannerDeployed[MAXPLAYERS] = false
 #define HOOVY_EFFECTS_RADIUS 315.0
@@ -52,6 +52,7 @@ stock min(a,b)
 #define TRUMPETER_DAMAGENEEDED 600
 
 
+
 enum
 {
 HOOVY_SOLDIER=0,
@@ -64,6 +65,7 @@ HOOVY_SCOUT, // accelerated speed,every healthkit fully regenerates you,BUT: -40
 HOOVY_BOXER, // Kills anyone with one punch, but anyone can kill him with one punch
 HOOVY_TRUMPETER,
 HOOVY_BOOMER,
+HOOVY_LEAPER,
 NUM_CLASSES
 }
 enum
@@ -73,7 +75,7 @@ enum
  Char_Dmgrespenalty,
  Num_Chars
 }
-float ClassChars[NUM_CLASSES][Num_Chars]={{1.25,1.0,1.0},{1.0,1.0,1.0},{0.5,0.85,1.3},{0.75,1.20,1.15},{0.6,0.6,1.0},{1.0,1.0,1.0},{0.7,1.0,1.0}, {0.26,0.3,1.0} }
+float ClassChars[NUM_CLASSES][Num_Chars]={{1.25,1.0,1.0},{1.0,1.0,1.0},{0.5,0.85,1.3},{0.75,1.20,1.15},{0.6,0.6,1.0},{1.0,1.0,1.0},{0.7,1.0,1.0}, {0.26,0.3,1.0},{0.41,0.85,1.3} }
 
 #define BOT_CLASS_LIMIT 2
 
@@ -86,6 +88,7 @@ char ClassDescription[NUM_CLASSES][]={
 "kills with one punch, dies from one punch",
 "Activate Buff Banner by using POOTIS (press x then press 5), BUT always marked for death,-30% health",
 "Now your most terrifying weapon is your sandwich",
+"Jump really high using RMB, -30% dmg resistance, -15% dmg penalty"
 }
 char ClassName[NUM_CLASSES][]=
 {
@@ -96,7 +99,8 @@ char ClassName[NUM_CLASSES][]=
 "Scout",
 "Boxer",
 "Trumpeter",
-"Boomer"
+"Boomer",
+"Leaper"
 }
 #define HOOVY_BIT_DMGBONUS (1<<1)
 #define HOOVY_BIT_DMGRES (1<<2)
@@ -104,7 +108,11 @@ char ClassName[NUM_CLASSES][]=
 #define HOOVY_BIT_HEALING (1<<4)
 
 #define SOUND_BOOM "items/cart_explode.wav"
+#define SOUND_RJUMP "weapons/rocket_jumper_explode1.wav"
 #define BOOM_RADIUS 600.0
+
+#define LEAPER_VEL 1200.0
+#define LEAPER_SPEED 8.0
 
 
 ConVar meleeOnlyAllowed
@@ -147,10 +155,49 @@ public OnPluginStart()
 public OnMapStart()
 {
     PrecacheSound(SOUND_BOOM)
+    PrecacheSound(SOUND_RJUMP)
     for(int i = 0 ; i < BOOMER_VO_NUM; i++)
     {
         PrecacheSound(boomer_sounds[i])
     }
+}
+public Action OnPlayerRunCmd(client,&buttons)
+{
+    if(!(buttons&IN_ATTACK2)||!ValidUser(client)||HoovySpecialDelivery[client])return Plugin_Continue
+    if(HoovyClass[client]==HOOVY_BOOMER)
+    {
+        if(getActiveSlot(client)!=TFWeaponSlot_Secondary)return Plugin_Continue
+        HoovySpecialDelivery[client] = true
+        float expltime = GetURandomFloat()*3.0
+        PrintToChatAll("An explosive sandwich has been deployed in this area. Time to take cover, probably.")
+        CreateTimer(expltime>1.0?expltime:1.0,ExplosiveSandwichTimer,client)
+        EmitSoundToAll(boomer_sounds[GetRandomInt(0,BOOMER_VO_NUM-1)],client)
+    }
+    else if(HoovyClass[client]==HOOVY_LEAPER)
+    {
+        static float angles[3],vel[3],fwd[3],right[3],up[3],cur[3]
+        vel = {0.0,0.0,0.0}
+        GetEntPropVector(client, Prop_Data, "m_vecVelocity", cur)
+        GetClientAbsAngles(client,angles)
+        GetAngleVectors(angles,fwd,right,up)
+        AddVectors(vel,fwd,vel)
+        AddVectors(vel,right,vel)
+        AddVectors(vel,up,vel)
+        ScaleVector(vel,LEAPER_VEL)
+        AddVectors(vel,cur,vel)
+        setPlayerSpeed(client,1.0)
+        if(vel[2]>0)
+        {
+            GetClientAbsOrigin(client,cur)
+            EmitSoundToAll(SOUND_RJUMP,SOUND_FROM_WORLD,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL,-1,cur)
+            HoovySpecialDelivery[client] = true
+            TeleportEntity(client, NULL_VECTOR, NULL_VECTOR, vel)
+            CreateTimer(12.0,Timer_ResetJumping,client)
+        }
+        //setPlayerSpeed(client,LEAPER_SPEED)
+        return Plugin_Handled
+    }
+    return Plugin_Continue
 }
 public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
 {
@@ -175,7 +222,7 @@ public Action OnGetMaxHealth(int client, int &maxHealth)
 }
 public Action OnWeaponSwitch(int client, int weapon)
 {
-    if(HoovyClass[client] == HOOVY_MEDIC||meleeOnlyAllowed.BoolValue)
+    if(HoovyClass[client] == HOOVY_MEDIC||HoovyClass[client] == HOOVY_LEAPER||meleeOnlyAllowed.BoolValue)
     {
         if(IsValidEntity(weapon))
         {
@@ -241,7 +288,7 @@ public Action Event_StealSandwich(Handle:hEvent, const String:strEventName[], bo
     int target = GetClientOfUserId(GetEventInt(hEvent,"target"))
     if(HoovyClass[owner]==HOOVY_BOOMER)// I have a new way to kill cowards!
     {
-        PrintToChatAll("Ooops, somebody just ate the wrong sandwich")
+        PrintToChatAll("Ooops, somebody just stepped on the wrong sandwich")
         ExplodeSandwich(target,owner)
     }
 }
@@ -317,70 +364,64 @@ public MainMenuHandler(Handle menuid, MenuAction action, id, menu_item)
 }
 public ShowHelp(id)
 {
-  if(!ValidUser(id))return
-  CancelClientMenu(id)
-  Menu menu = CreateMenu(HelpHandler)
-  menu.SetTitle("Classes information")
-  char strinfo[2]
-  strinfo[1] = '\0'
-  for(int i=0;i<NUM_CLASSES;i++)
-  {  
-    strinfo[0] = i
-    menu.AddItem(strinfo,ClassName[i])
-  }
-  menu.ExitButton = true
-  menu.ExitBackButton = true
-  menu.Display( id, MENU_TIMEOUT*3)
+    if(!ValidUser(id))return
+    CancelClientMenu(id)
+    Menu menu = CreateMenu(HelpHandler)
+    menu.SetTitle("Classes information")
+    char strinfo[2]
+    strinfo[1] = '\0'
+    for(int i=0;i<NUM_CLASSES;i++)
+    {  
+        strinfo[0] = i
+        menu.AddItem(strinfo,ClassName[i])
+    }
+    menu.ExitButton = true
+    menu.ExitBackButton = true
+    menu.Display( id, MENU_TIMEOUT*3)
 }
 public HelpHandler(Handle menuid, MenuAction action, id, menu_item)
 {
- if(action == MenuAction_End)CloseHandle(menuid)
- if(action == MenuAction_Cancel)
- { 
-   if(!MadeHisChoice[id])ShowMainMenu(id)
- }
- if(action == MenuAction_Select)
- {
-  char strinfo[2]
-  GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo))
-  ShowClassHelp(id,strinfo[0])
- }
+    if(action == MenuAction_End)CloseHandle(menuid)
+    if(action == MenuAction_Cancel&&!MadeHisChoice[id])ShowMainMenu(id)
+    if(action == MenuAction_Select)
+    {
+        char strinfo[2]
+        GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo))
+        ShowClassHelp(id,strinfo[0])
+    }
 }
 public ShowClassHelp(id,classid)
 {
-  if(!ValidUser(id))return
-  CancelClientMenu(id)
-  Menu menu = CreateMenu(ClassHelpHandler)
-  menu.SetTitle(ClassName[classid])
-  menu.AddItem("1",ClassDescription[classid])
-  menu.ExitBackButton = true
-  menu.ExitButton = false
-  menu.Display(id , MENU_TIMEOUT*4)
+    if(!ValidUser(id))return
+    CancelClientMenu(id)
+    Menu menu = CreateMenu(ClassHelpHandler)
+    menu.SetTitle(ClassName[classid])
+    menu.AddItem("1",ClassDescription[classid])
+    menu.ExitBackButton = true
+    menu.ExitButton = false
+    menu.Display(id , MENU_TIMEOUT*4)
 }
 public ClassHelpHandler(Handle menuid, MenuAction action, id, menu_item)
 {
- if(action == MenuAction_End)CloseHandle(menuid)
- if(action == MenuAction_Cancel||action == MenuAction_Select)
- {
-     ShowHelp(id)
- }
- else ShowMainMenu(id)
+    if(action == MenuAction_End)CloseHandle(menuid)
+    if(action == MenuAction_Cancel||action == MenuAction_Select)ShowHelp(id)
+    else ShowMainMenu(id)
 }
 public TryHealing(id)
 {
-  HoovyMaxHealth[id] = getMaxHealth(id)
-  if(HoovyFlags[id]&HOOVY_BIT_HEALING||HoovyClass[id]==HOOVY_MEDIC)
-  {
-   static int clienthealth
-   clienthealth = GetClientHealth(id)+RoundToFloor(MEDIC_HEAL*MEDIC_TICK)
-   SetEntityHealth(id,clienthealth)
-   if(clienthealth<HoovyMaxHealth[id])AttachParticle(id,TF2_GetClientTeam(id) == TFTeam_Red?"healthgained_red":"healthgained_blu","head",_,1.0);
-  }
-  if(GetClientHealth(id)>RoundToFloor(HoovyMaxHealth[id]))SetEntityHealth(id,RoundToFloor(HoovyMaxHealth[id]))
+    HoovyMaxHealth[id] = getMaxHealth(id)
+    if(HoovyFlags[id]&HOOVY_BIT_HEALING||HoovyClass[id]==HOOVY_MEDIC)
+    {
+        static int clienthealth
+        clienthealth = GetClientHealth(id)+RoundToFloor(MEDIC_HEAL*MEDIC_TICK)
+        SetEntityHealth(id,clienthealth)
+        if(clienthealth<HoovyMaxHealth[id])AttachParticle(id,TF2_GetClientTeam(id) == TFTeam_Red?"healthgained_red":"healthgained_blu","head",_,1.0);
+    }
+    if(GetClientHealth(id)>RoundToFloor(HoovyMaxHealth[id]))SetEntityHealth(id,RoundToFloor(HoovyMaxHealth[id]))
 }
 
 public HoovyBasicOperations()
-{ 
+{
  static int i
  for(i = 1;i < MaxClients;i++)
  {
@@ -395,6 +436,7 @@ public HoovyBasicOperations()
   RemoveUnwantedWeapons(i)
   if(IsFakeClient(i)&&(HoovyClass[i]==HOOVY_MEDIC||meleeOnlyAllowed.BoolValue))setActiveSlot(i,TFWeaponSlot_Melee) // force medic bot to use melee
   if(HoovyClass[i]==HOOVY_SCOUT)TF2_AddCondition(i, TFCond_SpeedBuffAlly, 1.1)
+  if(HoovyClass[i]==HOOVY_LEAPER)setPlayerSpeed(i,HoovySpecialDelivery[i]?1.0:0.4);
   if(HoovyClass[i]==HOOVY_BOXER)
   {
       if(getItemIndex(GetPlayerWeaponSlot(i, TFWeaponSlot_Melee))==43)TF2_AddCondition(i,TFCond_MarkedForDeathSilent,1.1)
@@ -435,38 +477,40 @@ public RemoveUnwantedWeapons(i)
 }
 public CheckBuffZones()
 {
-  static  int i,j
-  for(i = 1;i < MaxClients;i++)
-  {
-   if(!HoovyValid[i])continue;
-   for(j = 1; j < MaxClients; j++)
-   {
-     if(!HoovyValid[j]||HoovyClass[j] == HOOVY_SOLDIER||HoovyClass[j] == HOOVY_SCOUT||TF2_GetClientTeam(i)!=TF2_GetClientTeam(j)||(i==j&&HoovyClass[j]!=HOOVY_TRUMPETER))continue;
-     if(GetVectorDistance(HoovyCoords[i],HoovyCoords[j])<=HOOVY_EFFECTS_RADIUS)
-     {
-      switch(HoovyClass[j])
-      {
-        case(HOOVY_MEDIC):
-	{
-	 HoovyFlags[i] |= HOOVY_BIT_HEALING
-	}
-        case(HOOVY_COMISSAR):
+    static  int i,j
+    for(i = 1;i < MaxClients;i++)
+    {
+        if(!HoovyValid[i])continue;
+        for(j = 1; j < MaxClients; j++)
         {
-          HoovyFlags[i] |= HOOVY_BIT_DMGRES
-          HoovyFlags[i] |= HOOVY_BIT_OVERHEAL
-	}
-	case(HOOVY_OFFICER):
-        {
-	  HoovyFlags[i]|=HOOVY_BIT_DMGBONUS
-	}
-        case(HOOVY_TRUMPETER):
-        {
-          if(BannerDeployed[j])TF2_AddCondition(i,TFCond_Buffed,1.1)
+            if(!HoovyValid[j]||HoovyClass[j] == HOOVY_SOLDIER||HoovyClass[j] == HOOVY_SCOUT||TF2_GetClientTeam(i)!=TF2_GetClientTeam(j)||(i==j&&HoovyClass[j]!=HOOVY_TRUMPETER))continue;
+            if(GetVectorDistance(HoovyCoords[i],HoovyCoords[j])<=HOOVY_EFFECTS_RADIUS)
+            switch(HoovyClass[j])
+            {
+                case(HOOVY_MEDIC):
+	        {
+	        HoovyFlags[i] |= HOOVY_BIT_HEALING
+	        }
+                case(HOOVY_COMISSAR):
+                {
+                HoovyFlags[i] |= HOOVY_BIT_DMGRES
+                HoovyFlags[i] |= HOOVY_BIT_OVERHEAL
+	        }
+	        case(HOOVY_OFFICER):
+                {
+	        HoovyFlags[i]|=HOOVY_BIT_DMGBONUS
+	        }
+                case(HOOVY_TRUMPETER):
+                {
+                if(BannerDeployed[j])TF2_AddCondition(i,TFCond_Buffed,1.1)
+                }
+            }
         }
-      }
     }
-   }
-  }
+}
+public Action Timer_ResetJumping(Handle timer,int client)
+{
+    HoovySpecialDelivery[client] = false
 }
 public Action ExplosiveSandwichTimer(Handle timer,int client)
 {
@@ -493,100 +537,60 @@ public Action Timer_DeleteParticle(Handle:hTimer, any:iRefEnt)
 }
 public Action UpdateHoovies(Handle timer)
 {
- HoovyBasicOperations()
- CheckBuffZones()
+    HoovyBasicOperations()
+    CheckBuffZones()
 }
 public Action task_afterspawn(Handle timer, client)
 {
- if(!ValidUser(client))return
- if(!IsFakeClient(client))
- { 
-  if(!MadeHisChoice[client])ShowMainMenu(client)
- }
- else HoovyClass[client] = PickBotClass(client)
- if(TF2_GetPlayerClass(client)!=TFClass_Heavy)
-   {
-   MadeHisChoice[client] = false
-   TF2_SetPlayerClass(client, TFClass_Heavy)
-   TF2_RespawnPlayer(client)
-   }
+    if(!ValidUser(client))return
+    if(!IsFakeClient(client))
+    { 
+        if(!MadeHisChoice[client])ShowMainMenu(client)
+    }
+    else HoovyClass[client] = PickBotClass(client)
+    if(TF2_GetPlayerClass(client)!=TFClass_Heavy)
+    {
+        MadeHisChoice[client] = false
+        TF2_SetPlayerClass(client, TFClass_Heavy)
+        TF2_RespawnPlayer(client)
+    }
 }
 public Action VoiceCommand(client, const String:command[], argc)
 {
- if(!HoovyValid[client]||HoovyClass[client]!=HOOVY_TRUMPETER||HoovyRage[client]<TRUMPETER_DAMAGENEEDED||BannerDeployed[client])return Plugin_Continue
- char Numbers[32] // thats even too much
- GetCmdArgString(Numbers, sizeof(Numbers))
- TrimString(Numbers)
- if(StrEqual(Numbers,"1 4"))BannerDeployed[client] = true
- return Plugin_Continue
-}
-public Action OnPlayerRunCmd(client,&buttons)
-{
-    if((!(buttons&IN_ATTACK2))||HoovyClass[client]!=HOOVY_BOOMER||!ValidUser(client)||getActiveSlot(client)!=TFWeaponSlot_Secondary||HoovySpecialDelivery[client])return Plugin_Continue
-    HoovySpecialDelivery[client] = true
-    float expltime = GetURandomFloat()*3.0
-    PrintToChatAll("An explosive sandwich has been deployed in this area. Time to take cover, probably.")
-    CreateTimer(expltime>1.0?expltime:1.0,ExplosiveSandwichTimer,client)
-    EmitSoundToAll(boomer_sounds[GetRandomInt(0,BOOMER_VO_NUM-1)],client)
+    if(!HoovyValid[client]||HoovyClass[client]!=HOOVY_TRUMPETER||HoovyRage[client]<TRUMPETER_DAMAGENEEDED||BannerDeployed[client])return Plugin_Continue
+    char Numbers[32] // thats even too much
+    GetCmdArgString(Numbers, sizeof(Numbers))
+    TrimString(Numbers)
+    if(StrEqual(Numbers,"1 4"))BannerDeployed[client] = true
     return Plugin_Continue
 }
+// rtd plugin from linux_lover (abkowald@gmail.com)
 AttachParticle(iEntity, const String:strParticleEffect[], const String:strAttachPoint[]="", Float:flOffsetZ=0.0, Float:flSelfDestruct=0.0)
 {
-	new iParticle = CreateEntityByName("info_particle_system");
-	if(iParticle > MaxClients && IsValidEntity(iParticle))
-	{
-		new Float:flPos[3];
-		GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin", flPos);
-		flPos[2] += flOffsetZ;
-		
-		TeleportEntity(iParticle, flPos, NULL_VECTOR, NULL_VECTOR);
-		
-		DispatchKeyValue(iParticle, "effect_name", strParticleEffect);
-		DispatchSpawn(iParticle);
-		
-		SetVariantString("!activator");
-		AcceptEntityInput(iParticle, "SetParent", iEntity);
-		ActivateEntity(iParticle);
-		
-		if(strlen(strAttachPoint))
-		{
-			SetVariantString(strAttachPoint);
-			AcceptEntityInput(iParticle, "SetParentAttachmentMaintainOffset");
-		}
-		
-		AcceptEntityInput(iParticle, "start");
-		
-		if(flSelfDestruct > 0.0) CreateTimer(flSelfDestruct, Timer_DeleteParticle, EntIndexToEntRef(iParticle));
-		
-		return iParticle;
-	}
+    new iParticle = CreateEntityByName("info_particle_system");
+    if(iParticle > MaxClients && IsValidEntity(iParticle))
+    {
+        new Float:flPos[3];
+        GetEntPropVector(iEntity, Prop_Send, "m_vecOrigin", flPos);
+        flPos[2] += flOffsetZ;
+
+        TeleportEntity(iParticle, flPos, NULL_VECTOR, NULL_VECTOR);
 	
-	return 0;
-}
-stock getItemIndex(item)
-{
- return GetEntProp(item,Prop_Send, "m_iItemDefinitionIndex")
-}
-stock getActiveSlot(id)
-{
- static int gun, primary, secondary, melee
- gun = GetEntPropEnt(id, Prop_Send, "m_hActiveWeapon")
- if(gun==-1)return -1
- primary = GetPlayerWeaponSlot(id,TFWeaponSlot_Primary)
- secondary = GetPlayerWeaponSlot(id,TFWeaponSlot_Secondary)
- melee = GetPlayerWeaponSlot(id,TFWeaponSlot_Melee)
- if(gun==primary)return TFWeaponSlot_Primary
- if(gun==secondary)return TFWeaponSlot_Secondary
- if(gun==melee)return TFWeaponSlot_Melee
- return -1
-}
-stock setActiveSlot(client,slot)
-{
-  new iWeapon = GetPlayerWeaponSlot(client, slot);
-  if(IsValidEntity(iWeapon))
-  {
-   SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", iWeapon);
-  }
+        DispatchKeyValue(iParticle, "effect_name", strParticleEffect);
+        DispatchSpawn(iParticle);
+        SetVariantString("!activator");
+        AcceptEntityInput(iParticle, "SetParent", iEntity);
+        ActivateEntity(iParticle);
+        if(strlen(strAttachPoint))
+        {
+            SetVariantString(strAttachPoint);
+            AcceptEntityInput(iParticle, "SetParentAttachmentMaintainOffset");
+        }
+        AcceptEntityInput(iParticle, "start");
+        if(flSelfDestruct > 0.0) CreateTimer(flSelfDestruct, Timer_DeleteParticle, EntIndexToEntRef(iParticle));
+	return iParticle;
+    }
+    return 0;
 }
 stock countClass(id,cl)
 {
@@ -617,10 +621,16 @@ stock PickBotClass(id)
 {
     static int i,j,cl,count
     ArrayList nClasses = CreateArray(1)
-    for(i=0;i<NUM_CLASSES;i++)
+    for(i=0;i<NUM_CLASSES-2;i++)
     {
-        if(countClass(id,i)<BOT_CLASS_LIMIT)
+        cl = countClass(id,i)
+        if(cl<BOT_CLASS_LIMIT)
         {
+            if(i==HOOVY_MEDIC&&cl==0)
+            {
+                ClearArray(nClasses)
+                return HOOVY_MEDIC
+            }
             count = GetRandomInt(0,BOT_CLASS_LIMIT)
             for(j=0;j<count;j++)
             {
@@ -660,6 +670,18 @@ stock ExplodeSandwich(int targetent,int owner)
         }
     }
 }
+stock setActiveSlot(client,slot)
+{
+    new iWeapon = GetPlayerWeaponSlot(client, slot);
+    if(IsValidEntity(iWeapon))
+    {
+       SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", iWeapon);
+    }
+}
+public void setPlayerSpeed(client,float value)
+{
+    SetEntPropFloat(client, Prop_Data, "m_flLaggedMovementValue", value)
+}
 public float getMaxHealth(id)
 {
     static float newmaxhealth 
@@ -667,4 +689,21 @@ public float getMaxHealth(id)
     newmaxhealth *= ClassChars[HoovyClass[id]][Char_Maxhealth]
     if(HoovyFlags[id]&HOOVY_BIT_OVERHEAL)newmaxhealth += COMISSAR_OVERHEAL
     return newmaxhealth
+}
+stock getItemIndex(item)
+{
+ return GetEntProp(item,Prop_Send, "m_iItemDefinitionIndex")
+}
+stock getActiveSlot(id)
+{
+    static int gun, primary, secondary, melee
+    gun = GetEntPropEnt(id, Prop_Send, "m_hActiveWeapon")
+    if(gun==-1)return -1
+    primary = GetPlayerWeaponSlot(id,TFWeaponSlot_Primary)
+    secondary = GetPlayerWeaponSlot(id,TFWeaponSlot_Secondary)
+    melee = GetPlayerWeaponSlot(id,TFWeaponSlot_Melee)
+    if(gun==primary)return TFWeaponSlot_Primary
+    if(gun==secondary)return TFWeaponSlot_Secondary
+    if(gun==melee)return TFWeaponSlot_Melee
+    return -1
 }
