@@ -598,7 +598,7 @@ stock countClass(id,cl)
     ctr = 0
     for(i = 1; i < MaxClients;i++)
     {
-        if(!HoovyValid[i]||i==id)continue;
+        if(!HoovyValid[i]||i==id||TF2_GetClientTeam(i)!=TF2_GetClientTeam(id))continue;
         if(HoovyClass[i]==cl)ctr++
     }
     return ctr
