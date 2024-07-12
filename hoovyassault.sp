@@ -644,6 +644,7 @@ stock PickBotClass(id)
     if(!count)
     {
         ClearArray(nClasses)
+        delete nClasses
         return (GetRandomInt(0,100)>40)?0:GetRandomInt(1,NUM_CLASSES-1)
     }
     cl = GetArrayCell(nClasses,GetRandomInt(0,count-1))
