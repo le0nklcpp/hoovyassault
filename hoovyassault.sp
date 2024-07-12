@@ -673,7 +673,7 @@ stock ExplodeSandwich(int targetent,int owner)
         dist = GetVectorDistance(pos,where)
         if(dist<BOOM_RADIUS) // if he shoots you, you'll probably die
         {
-            SDKHooks_TakeDamage(i, 0, owner, dist<(BOOM_RADIUS/2.0)?320.0:(320.0*dist/BOOM_RADIUS), DMG_PREVENT_PHYSICS_FORCE|DMG_CRUSH|DMG_ALWAYSGIB)
+            SDKHooks_TakeDamage(i, 0, owner, dist<(BOOM_RADIUS/2.0)?320.0:(320.0*(1.0-dist/BOOM_RADIUS)), DMG_PREVENT_PHYSICS_FORCE|DMG_CRUSH|DMG_ALWAYSGIB)
         }
     }
 }
