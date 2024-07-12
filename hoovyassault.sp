@@ -596,7 +596,7 @@ stock countClass(id,cl)
 {
     static int i,ctr
     ctr = 0
-    for(i = 0; i < MaxClients;i++)
+    for(i = 1; i < MaxClients;i++)
     {
         if(!HoovyValid[i]||i==id)continue;
         if(HoovyClass[i]==cl)ctr++
