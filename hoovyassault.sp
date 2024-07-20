@@ -146,7 +146,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "0.20.07.24",
+ version = "20.07.24.1",
  url = ""
 };
 public OnPluginStart()
@@ -371,6 +371,8 @@ public void OnClientDisconnect(int client)
     removeSDKHooks(client)
     HoovyVisuals[client] = false
     HoovyValid[client] = false
+    DestroyClientBuildings(client, "obj_sentrygun")
+    DestroyClientBuildings(client, "obj_dispenser")
 }
 public removeSDKHooks(client)
 {
