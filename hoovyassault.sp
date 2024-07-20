@@ -51,6 +51,7 @@ stock min(a,b)
 #define HOOVY_EFFECTS_RADIUS 315.0
 #define MENU_TIMEOUT 4
 #define MEDIC_HEAL 15 // HP/tic
+#define MEDIC_FIST_HEAL 35
 #define MEDIC_TICK 0.2 // seconds
 #define COMISSAR_OVERHEAL 50.0
 #define COMISSAR_DMGRES 0.9
@@ -98,7 +99,7 @@ enum
  Num_Chars
 }
 float ClassChars[NUM_CLASSES][Num_Chars]={{1.25,1.0,1.0},{1.0,1.0,1.0},{0.5,0.85,1.3},{0.75,1.20,1.15},{0.6,0.85,1.0},{1.0,1.0,1.0},{0.7,1.0,1.0}, {0.26,0.3,1.0},{0.41,0.6,1.3},{0.5,1.0,1.0} }
-int ClassLimit[NUM_CLASSES]={0,0,0,0,0,0,0,2,0,1}
+int ClassLimit[NUM_CLASSES]={0,0,0,0,0,0,0,2,0,1} // negative value means it can't be accessed using menu
 
 char ClassDescription[NUM_CLASSES][]={
 "Health bonus +75 HP",
@@ -146,7 +147,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "20.07.24.1",
+ version = "21.07.24.0",
  url = ""
 };
 public OnPluginStart()
@@ -247,6 +248,12 @@ public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &dama
         damage *= float(GetClientHealth(iAttacker))/HoovyMaxHealth[iAttacker]
     }
     return Plugin_Changed
+}
+public Action OnTraceAttack(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &ammotype, int hitbox, int hitgroup)
+{
+    if(!ValidUser(victim)||!ValidUser(attacker)||TF2_GetClientTeam(attacker)!=TF2_GetClientTeam(victim)||HoovyClass[attacker]!=HOOVY_MEDIC)return Plugin_Continue
+    SetEntityHealth(victim,GetClientHealth(victim)+MEDIC_FIST_HEAL)
+    return Plugin_Continue
 }
 public Action OnGetMaxHealth(int client, int &maxHealth)
 {
@@ -384,6 +391,7 @@ public doSDKHooks(client)
 {
     SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage)
     SDKHook(client, SDKHook_GetMaxHealth,OnGetMaxHealth)
+    SDKHook(client, SDKHook_TraceAttack, OnTraceAttack)
     if(IsFakeClient(client))SDKHook(client, SDKHook_WeaponSwitch, OnWeaponSwitch)
 }
 public ShowMainMenu(id)
