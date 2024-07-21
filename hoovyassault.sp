@@ -52,6 +52,8 @@ stock min(a,b)
 #define MENU_TIMEOUT 4
 #define MEDIC_HEAL 15 // HP/tic
 #define MEDIC_FIST_HEAL 35
+#define MEDIC_HEAL_FIST_DELAY 1.5
+#define MEDIC_OVERHEAL 50
 #define MEDIC_TICK 0.2 // seconds
 #define COMISSAR_OVERHEAL 50.0
 #define COMISSAR_DMGRES 0.9
@@ -147,7 +149,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "21.07.24.0",
+ version = "21.07.24.1",
  url = ""
 };
 public OnPluginStart()
@@ -164,6 +166,7 @@ public OnPluginStart()
     HookEvent("teamplay_round_start", Event_RoundStart)
     HookEvent("teamplay_point_captured",Event_PointCaptured)
     HookEvent("teamplay_flag_event",Event_FlagEvent)
+    HookEvent("killed_capping_player",Event_KilledCappingPlayer)
     AddCommandListener(VoiceCommand , "voicemenu")
     AddCommandListener(SayCommand, "say")
     AddCommandListener(SayCommand, "say_team")
@@ -252,12 +255,20 @@ public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &dama
 public Action OnTraceAttack(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &ammotype, int hitbox, int hitgroup)
 {
     if(!ValidUser(victim)||!ValidUser(attacker)||TF2_GetClientTeam(attacker)!=TF2_GetClientTeam(victim)||HoovyClass[attacker]!=HOOVY_MEDIC)return Plugin_Continue
-    SetEntityHealth(victim,GetClientHealth(victim)+MEDIC_FIST_HEAL)
+    SetEntityHealth(victim,min(GetClientHealth(victim)+MEDIC_FIST_HEAL,RoundToFloor(HoovyMaxHealth[victim])+MEDIC_OVERHEAL))
+    SetEntPropFloat(attacker,Prop_Send,"m_flNextAttack",GetGameTime()+ MEDIC_HEAL_FIST_DELAY)
     return Plugin_Continue
 }
 public Action OnGetMaxHealth(int client, int &maxHealth)
 {
     maxHealth = RoundToFloor(HoovyMaxHealth[client])
+    int sandwich = GetPlayerWeaponSlot(client,TFWeaponSlot_Secondary)
+    if(sandwich!=-1&&IsFood(sandwich)&&getItemIndex(sandwich)==159&&HasEntProp(sandwich,Prop_Send,"m_iPrimaryAmmoType"))
+    {
+        int offs = GetEntProp(sandwich, Prop_Send, "m_iPrimaryAmmoType")
+        int iAmmo = FindSendPropInfo("CTFPlayer","m_iAmmo")
+        if(iAmmo!=-1&&offs!=-1&&(!GetEntData(client,iAmmo+(offs*4),4)))maxHealth += 50 // better than nothing
+    }
     return Plugin_Changed
 }
 public Action OnWeaponSwitch(int client, int weapon)
@@ -300,6 +311,11 @@ public Action Event_PlayerDeath(Handle:hEvent, const String:strEventName[], bool
             if(ValidUser(iAttacker))AddScores(iAttacker,2)
         }
     }
+}
+public Action Event_KilledCappingPlayer(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
+{
+    int killer = GetEventInt(hEvent,"killer")
+    if(ValidUser(killer))AddScores(killer,1)
 }
 public Action Event_ItemPickup(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
@@ -519,12 +535,16 @@ public TryHealing(id)
     HoovyMaxHealth[id] = getMaxHealth(id)
     if(HoovyFlags[id]&HOOVY_BIT_HEALING||HoovyClass[id]==HOOVY_MEDIC)
     {
-        static int clienthealth
-        clienthealth = GetClientHealth(id)+RoundToFloor(MEDIC_HEAL*MEDIC_TICK)
-        SetEntityHealth(id,clienthealth)
-        if(clienthealth<HoovyMaxHealth[id])AttachParticle(id,TF2_GetClientTeam(id) == TFTeam_Red?"healthgained_red":"healthgained_blu","head",_,HOOVY_CYCLE_TIME);
+        static int clienthealth,maxhealth
+        clienthealth = GetClientHealth(id)
+        maxhealth = RoundToFloor(HoovyMaxHealth[id])
+        if(clienthealth<maxhealth)
+        {
+            SetEntityHealth(id,min(clienthealth+RoundToFloor(MEDIC_HEAL*MEDIC_TICK),maxhealth))
+            AttachParticle(id,TF2_GetClientTeam(id) == TFTeam_Red?"healthgained_red":"healthgained_blu","head",_,HOOVY_CYCLE_TIME);
+        }
     }
-    if(GetClientHealth(id)>RoundToFloor(HoovyMaxHealth[id]))SetEntityHealth(id,RoundToFloor(HoovyMaxHealth[id]))
+    //if(GetClientHealth(id)>RoundToFloor(HoovyMaxHealth[id]))SetEntityHealth(id,RoundToFloor(HoovyMaxHealth[id]))
 }
 
 public HoovyBasicOperations()
@@ -606,8 +626,11 @@ public CheckBuffZones()
             {
                 case(HOOVY_MEDIC):
 	        {
+                    if(!(HoovyFlags[i]&HOOVY_BIT_HEALING))
+                    {
 	            HoovyFlags[i] |= HOOVY_BIT_HEALING
                     Beam(i,j)
+                    }
 	        }
                 case(HOOVY_COMISSAR):
                 {
