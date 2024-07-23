@@ -3,7 +3,7 @@ Handle g_hWeaponEquip
 This file is part of hoovyassault plugin, however if you build it with GBW_STAGING disabled you can safely remove it
 This code was stolen from GiveBotsWeapons by luki1412
 */
-stock GBW_Module_OnPluginStart()
+stock GBW_Staging_OnPluginStart()
 {
     Handle g_hGameConfig = LoadGameConfigFile("give.bots.weapons")
     StartPrepSDKCall(SDKCall_Player)
