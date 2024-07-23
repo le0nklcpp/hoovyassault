@@ -19,6 +19,8 @@
 #include <sdkhooks>
 #include <string>
 
+#define GBW_STAGING 0 // set to 1 to enable the following features: Comissar SMG
+
 int HoovyClass[MAXPLAYERS]
 int HoovyFlags[MAXPLAYERS] // bitsum
 int HoovyRage[MAXPLAYERS] = 0
@@ -76,6 +78,10 @@ stock min(a,b)
 
 #define DISPENSER_COST 5
 #define SENTRY_COST 12
+
+#if GBW_STAGING
+#include "hoovyassault_module_gbw.inc"
+#endif
 
 enum
 {
@@ -149,7 +155,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "21.07.24.1",
+ version = "23.07.24.0",
  url = ""
 };
 public OnPluginStart()
@@ -172,15 +178,24 @@ public OnPluginStart()
     AddCommandListener(SayCommand, "say_team")
     meleeOnlyAllowed = CreateConVar("hassault_melee_only","0","Enable/disable melee mode")
     HoovyScores[0] = HoovyScores[1] = 0
+    #if GBW_STAGING
+    GBW_Staging_OnPluginStart()
+    #endif
 }
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
+    if (GetEngineVersion() != Engine_TF2) 
+    {
+        Format(error, err_max, "This plugin only works for Team Fortress 2.")
+        return APLRes_Failure
+    }
     CreateNative("GetHoovyClass",NativeGetHoovyClass)
     CreateNative("SetHoovyClass",NativeSetHoovyClass)
     CreateNative("AddHoovyScores",NativeAddHoovyScores)
     CreateNative("WithdrawHoovyScores",NativeWithdrawHoovyScores)
     CreateNative("GetHoovyScores", NativeGetHoovyScores)
-    CreateNative("SetHoovyScores", NativeSetHoovyScores) 
+    CreateNative("SetHoovyScores", NativeSetHoovyScores)
+    return APLRes_Success
 }
 public OnMapStart()
 {
@@ -234,13 +249,22 @@ public Action OnPlayerRunCmd(int client,int &buttons)
 }
 public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &damagetype, &weapon, Float:damageForce[3], Float:damagePosition[3], damagecustom)
 {
-    if(!ValidUser(iAttacker)||!ValidUser(iVictim))return Plugin_Continue
+    static bool validVictim
+    validVictim = ValidUser(iVictim)
+    if(!ValidUser(iAttacker))return Plugin_Continue
     if(HoovyFlags[iAttacker]&HOOVY_BIT_DMGBONUS)damage *= OFFICER_DMGBONUS
-    if(HoovyFlags[iVictim]&HOOVY_BIT_DMGRES)damage  *= COMISSAR_DMGRES
-    damage = damage * ClassChars[HoovyClass[iVictim]][Char_Dmgrespenalty] * ClassChars[HoovyClass[iAttacker]][Char_Dmgbonus]
-    if(HoovyClass[iVictim]==HOOVY_BOXER||HoovyClass[iAttacker]==HOOVY_BOXER)
+    if(validVictim)
     {
-        if(getActiveSlot(iAttacker)==TFWeaponSlot_Melee)damage*=300.0
+        if(HoovyFlags[iVictim]&HOOVY_BIT_DMGRES)damage  *= COMISSAR_DMGRES
+        damage = damage * ClassChars[HoovyClass[iVictim]][Char_Dmgrespenalty]
+    }
+    damage = damage * ClassChars[HoovyClass[iAttacker]][Char_Dmgbonus]
+    if((validVictim&&HoovyClass[iVictim]==HOOVY_BOXER)||HoovyClass[iAttacker]==HOOVY_BOXER)
+    {
+        if(getActiveSlot(iAttacker)==TFWeaponSlot_Melee)
+        {
+            damage = float(validVictim?GetClientHealth(iVictim):2)
+        }
     }
     if(HoovyClass[iAttacker]==HOOVY_TRUMPETER)
     {
@@ -334,7 +358,7 @@ public Action Event_PlayerSpawn(Handle:hEvent, const String:strEventName[], bool
     BannerDeployed[client] = false
     if(ValidUser(client))
     {
-        CreateTimer(2.0,task_afterspawn,client)
+        CreateTimer(2.0,Timer_AfterSpawn,client)
     }
 }
 public Action Event_FlagEvent(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
@@ -605,11 +629,24 @@ public RemoveUnwantedWeapons(i)
    {
        if(getActiveSlot(i)==TFWeaponSlot_Primary)setActiveSlot(i,HoovyClass[i]==HOOVY_MEDIC?TFWeaponSlot_Melee:TFWeaponSlot_Secondary)
        TF2_RemoveWeaponSlot(i,TFWeaponSlot_Primary) // Anti-repick protection
+       weapon = GetPlayerWeaponSlot(i, TFWeaponSlot_Secondary)
        if(HoovyClass[i]==HOOVY_MEDIC||HoovyClass[i]==HOOVY_BOOMER||meleeOnlyAllowed.BoolValue)
        {
-           weapon = GetPlayerWeaponSlot(i, TFWeaponSlot_Secondary)
            if(weapon!=-1&&!IsFood(weapon))TF2_RemoveWeaponSlot(i,TFWeaponSlot_Secondary)
        }
+       #if GBW_STAGING
+       else if(HoovyClass[i]==HOOVY_COMISSAR)
+       {
+           if(weapon!=-1&&getItemIndex(weapon)!=16)
+           {
+               TF2_RemoveWeaponSlot(i,TFWeaponSlot_Secondary)
+               if(!CreateWeapon(i,"tf_weapon_smg",16,1))
+               {
+                   LogError("Failed to create tf_weapon_smg")
+               }
+           }
+       }
+       #endif
    }
 }
 public CheckBuffZones()
@@ -707,11 +744,11 @@ public Action UpdateHoovies(Handle timer)
     HoovyBasicOperations()
     CheckBuffZones()
 }
-public Action task_afterspawn(Handle timer, client)
+public Action Timer_AfterSpawn(Handle timer, client)
 {
     if(!ValidUser(client))return
     if(!IsFakeClient(client))
-    { 
+    {
         if(!MadeHisChoice[client])ShowMainMenu(client)
     }
     else HoovyClass[client] = PickBotClass(client)
