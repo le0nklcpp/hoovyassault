@@ -155,7 +155,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "23.07.24.0",
+ version = "24.07.24.0",
  url = ""
 };
 public OnPluginStart()
@@ -258,6 +258,10 @@ public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &dama
         if(HoovyFlags[iVictim]&HOOVY_BIT_DMGRES)damage  *= COMISSAR_DMGRES
         damage = damage * ClassChars[HoovyClass[iVictim]][Char_Dmgrespenalty]
     }
+    #if GBW_STAGING
+    if(HoovyClass[iAttacker]==HOOVY_COMISSAR&&getActiveSlot(iAttacker)==TFWeaponSlot_Secondary)damage = damage * 1.25
+    else
+    #endif
     damage = damage * ClassChars[HoovyClass[iAttacker]][Char_Dmgbonus]
     if((validVictim&&HoovyClass[iVictim]==HOOVY_BOXER)||HoovyClass[iAttacker]==HOOVY_BOXER)
     {
@@ -716,6 +720,11 @@ public Action Timer_ResetJumping(Handle timer,int client)
 {
     HoovySpecialDelivery[client] = false
 }
+public Action Timer_RemoveSandwich(Handle timer, int client)
+{
+    int ent = findMySandwich(client)
+    if(ent!=-1&&IsValidEntity(ent))AcceptEntityInput(ent, "Kill")
+}
 public Action ExplosiveSandwichTimer(Handle timer,int client)
 {
     HoovySpecialDelivery[client] = false
@@ -723,6 +732,7 @@ public Action ExplosiveSandwichTimer(Handle timer,int client)
     entity = findMySandwich(client)
     if(entity==-1)return
     ExplodeSandwich(entity,client)
+    CreateTimer(1.0,Timer_RemoveSandwich,client)
 }
 public Action HealTimer(Handle timer)
 {
