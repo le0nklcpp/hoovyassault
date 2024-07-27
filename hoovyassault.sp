@@ -293,7 +293,7 @@ public Action OnGetMaxHealth(int client, int &maxHealth)
     int sandwich = GetPlayerWeaponSlot(client,TFWeaponSlot_Secondary)
     if(sandwich!=-1&&IsFood(sandwich)&&getItemIndex(sandwich)==159&&HasEntProp(sandwich,Prop_Send,"m_iPrimaryAmmoType"))
     {
-        int offs = GetEntProp(sandwich, Prop_Send, "m_iPrimaryAmmoType")
+        int offs = GetEntProp(sandwich, Prop_Send, "m_iPrimaryAmmoType",1)
         int iAmmo = FindSendPropInfo("CTFPlayer","m_iAmmo")
         if(iAmmo!=-1&&offs!=-1&&(!GetEntData(client,iAmmo+(offs*4),4)))maxHealth += 50 // better than nothing
     }
