@@ -19,7 +19,7 @@
 #include <sdkhooks>
 #include <string>
 
-#define GBW_STAGING 0 // set to 1 to enable the following features: Comissar SMG
+#define GBW_STAGING 1 // set to 1 to enable the following features: Comissar SMG
 
 int HoovyClass[MAXPLAYERS]
 int HoovyFlags[MAXPLAYERS] // bitsum
@@ -55,7 +55,7 @@ stock min(a,b)
 #define MEDIC_HEAL 15 // HP/tic
 #define MEDIC_FIST_HEAL 35
 #define MEDIC_HEAL_FIST_DELAY 1.5
-#define MEDIC_OVERHEAL 50
+#define MEDIC_OVERHEAL 100
 #define MEDIC_TICK 0.2 // seconds
 #define COMISSAR_OVERHEAL 50.0
 #define COMISSAR_DMGRES 0.9
@@ -68,8 +68,10 @@ stock min(a,b)
 #define HOOVY_BIT_OVERHEAL (1<<3)
 #define HOOVY_BIT_HEALING (1<<4)
 
+#define SOUND_HEAL "items/smallmedkit1.wav"
 #define SOUND_BOOM "items/cart_explode.wav"
 #define SOUND_RJUMP "weapons/rocket_jumper_explode1.wav"
+
 #define BOOM_RADIUS 600.0
 
 #define LEAPER_VEL 1200.0
@@ -155,7 +157,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "24.07.24.0",
+ version = "30.07.24.0",
  url = ""
 };
 public OnPluginStart()
@@ -201,6 +203,7 @@ public OnMapStart()
 {
     PrecacheSound(SOUND_BOOM)
     PrecacheSound(SOUND_RJUMP)
+    PrecacheSound(SOUND_HEAL)
     BeamSprite[0] = PrecacheModel("materials/sprites/healbeam_blue.vmt")
     BeamSprite[1] = PrecacheModel("materials/sprites/healbeam.vmt")
     HaloSprite = PrecacheModel("materials/sprites/glow02.vmt")
@@ -283,9 +286,14 @@ public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &dama
 public Action OnTraceAttack(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &ammotype, int hitbox, int hitgroup)
 {
     if(!ValidUser(victim)||!ValidUser(attacker)||TF2_GetClientTeam(attacker)!=TF2_GetClientTeam(victim)||HoovyClass[attacker]!=HOOVY_MEDIC)return Plugin_Continue
-    SetEntityHealth(victim,min(GetClientHealth(victim)+MEDIC_FIST_HEAL,RoundToFloor(HoovyMaxHealth[victim])+MEDIC_OVERHEAL))
+    static int health, maxhealth
+    health = GetClientHealth(victim)
+    maxhealth = RoundToFloor(HoovyMaxHealth[victim]) + MEDIC_OVERHEAL
+    if(health>maxhealth)return Plugin_Continue
+    SetEntityHealth(victim,min(health+MEDIC_FIST_HEAL,maxhealth))
     SetEntPropFloat(attacker,Prop_Send,"m_flNextAttack",GetGameTime()+ MEDIC_HEAL_FIST_DELAY)
-    return Plugin_Continue
+    EmitSoundToAll(SOUND_HEAL,victim)
+    return Plugin_Handled
 }
 public Action OnGetMaxHealth(int client, int &maxHealth)
 {
@@ -646,8 +654,9 @@ public RemoveUnwantedWeapons(i)
                TF2_RemoveWeaponSlot(i,TFWeaponSlot_Secondary)
                if(!CreateWeapon(i,"tf_weapon_smg",16,1))
                {
-                   LogError("Failed to create tf_weapon_smg")
+                   //LogError("Failed to create tf_weapon_smg")
                }
+               else SetAmmo(i,GetPlayerWeaponSlot(i,TFWeaponSlot_Secondary),100)
            }
        }
        #endif

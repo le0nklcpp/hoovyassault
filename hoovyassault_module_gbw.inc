@@ -56,3 +56,11 @@ stock CreateWeapon(int client, char[] classname, int itemindex, int level = 0)
     setActiveSlot(client,TFWeaponSlot_Secondary)
     return true;
 }
+stock SetAmmo(client,weapon,int amount)
+{
+        if(!IsValidEntity(weapon))return
+        int offs = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType",1)
+        int iAmmo = FindSendPropInfo("CTFPlayer","m_iAmmo")
+        if(iAmmo!=-1&&offs!=-1)SetEntData(client,iAmmo+(offs*4),amount,4)
+
+}
