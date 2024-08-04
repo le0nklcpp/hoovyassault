@@ -268,7 +268,7 @@ public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &dama
     damage = damage * ClassChars[HoovyClass[iAttacker]][Char_Dmgbonus]
     if((validVictim&&HoovyClass[iVictim]==HOOVY_BOXER)||HoovyClass[iAttacker]==HOOVY_BOXER)
     {
-        if(getActiveSlot(iAttacker)==TFWeaponSlot_Melee)
+        if(TF2_GetClientTeam(iAttacker)!=TF2_GetClientTeam(iVictim)&&getActiveSlot(iAttacker)==TFWeaponSlot_Melee)
         {
             damage = validVictim?float(GetClientHealth(iVictim)):(damage*2)
         }
