@@ -270,7 +270,7 @@ public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &dama
     {
         if(getActiveSlot(iAttacker)==TFWeaponSlot_Melee)
         {
-            damage = float(validVictim?GetClientHealth(iVictim):2)
+            damage = float(validVictim?GetClientHealth(iVictim):damage*2)
         }
     }
     if(HoovyClass[iAttacker]==HOOVY_TRUMPETER)
