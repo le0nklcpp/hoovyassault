@@ -19,7 +19,10 @@
 #include <sdkhooks>
 #include <string>
 
+#define HOOVY_POINTS_LIMIT 65
+
 #define GBW_STAGING 1 // set to 1 to enable the following features: Comissar SMG
+#define SPELLS_STAGING 0 // set to 1 to enable the following features: Spells
 
 int HoovyClass[MAXPLAYERS]
 int HoovyFlags[MAXPLAYERS] // bitsum
@@ -84,7 +87,6 @@ stock min(a,b)
 #if GBW_STAGING
 #include "hoovyassault_module_gbw.inc"
 #endif
-
 enum
 {
 HOOVY_SOLDIER=0,
@@ -99,17 +101,43 @@ HOOVY_TRUMPETER,
 HOOVY_BOOMER,
 HOOVY_LEAPER,
 HOOVY_ENGINEER,
+HOOVY_GNOME,
 NUM_CLASSES
 }
 enum
 {
- Char_Maxhealth = 0,
- Char_Dmgbonus,
- Char_Dmgrespenalty,
- Num_Chars
+ Char_Maxhealth = 0, Char_Dmgbonus, Char_Dmgrespenalty, Num_Chars
 }
-float ClassChars[NUM_CLASSES][Num_Chars]={{1.25,1.0,1.0},{1.0,1.0,1.0},{0.5,0.85,1.3},{0.75,1.20,1.15},{0.6,0.85,1.0},{1.0,1.0,1.0},{0.7,1.0,1.0}, {0.26,0.3,1.0},{0.41,0.6,1.3},{0.5,1.0,1.0} }
-int ClassLimit[NUM_CLASSES]={0,0,0,0,0,0,0,2,0,1} // negative value means it can't be accessed using menu
+float ClassChars[NUM_CLASSES][Num_Chars]={
+{1.25,1.0,1.0},  // HOOVY_SOLDIER
+{1.0,1.0,1.0},   // HOOVY_MEDIC
+{0.5,0.85,1.3},  // HOOVY_COMISSAR
+{0.75,1.20,1.15},// HOOVY_OFFICER
+{0.6,0.85,1.0},  // HOOVY_SCOUT
+{1.0,1.0,1.0},   // HOOVY_BOXER
+{0.7,1.0,1.0},   // HOOVY_TRUMPETER
+{0.26,0.3,1.0},  // HOOVY_BOOMER
+{0.84,0.6,1.3},  // HOOVY_LEAPER
+{0.5,1.0,1.0},   // HOOVY_ENGINEER
+{0.25,0.5,0.5}   // HOOVY_GNOME
+}
+
+// negative value means it can't be accessed using the class menu. Set to -2 to remove it from help too
+int ClassLimit[NUM_CLASSES]=
+{
+0,  // HOOVY_SOLDIER
+0,  // HOOVY_MEDIC
+0,  // HOOVY_COMISSAR
+0,  // HOOVY_OFFICER
+0,  // HOOVY_SCOUT
+0,  // HOOVY_BOXER
+0,  // HOOVY_TRUMPETER
+2,  // HOOVY_BOOMER
+0,  // HOOVY_LEAPER
+1,  // HOOVY_ENGINEER
+2   // HOOVY_GNOME
+}
+
 
 char ClassDescription[NUM_CLASSES][]={
 "Health bonus +75 HP",
@@ -121,7 +149,8 @@ char ClassDescription[NUM_CLASSES][]={
 "Activate Buff Banner by using POOTIS (press x then press 5), BUT always marked for death,-30% health",
 "Now your most terrifying weapon is your sandwich",
 "Jump really high using RMB, -30% dmg resistance, -15% dmg penalty",
-"Put dispenser here by saying \"Put dispenser here\"(press x then press 5), -85% health,damage penalty based on health"
+"Put dispenser here by saying \"Put dispenser here\"(press x then press 5), -85% health,damage penalty based on health",
+"Cast gruesome spells on your foes and allies"
 }
 char ClassName[NUM_CLASSES][]=
 {
@@ -134,7 +163,8 @@ char ClassName[NUM_CLASSES][]=
 "Trumpeter",
 "Boomer",
 "Leaper",
-"Engineer"
+"Engineer",
+"Gnome wizard"
 }
 
 
@@ -151,13 +181,16 @@ char boomer_sounds[BOOMER_VO_NUM][] = {
 "vo/heavy_meleeing01.mp3",
 "vo/heavy_mvm_bomb_see01.mp3"
 }
-
+// modules that require basic Heavyassault constants
+#if SPELLS_STAGING
+#include "hoovyassault_module_spells"
+#endif
 public Plugin myinfo = 
 {
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "30.07.24.0",
+ version = "04.08.24.0",
  url = ""
 };
 public OnPluginStart()
@@ -182,6 +215,9 @@ public OnPluginStart()
     HoovyScores[0] = HoovyScores[1] = 0
     #if GBW_STAGING
     GBW_Staging_OnPluginStart()
+    #endif
+    #if SPELLS_STAGING
+    Spells_OnPluginStart()
     #endif
 }
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
@@ -211,6 +247,9 @@ public OnMapStart()
     {
         PrecacheSound(boomer_sounds[i])
     }
+    #if SPELLS_STAGING
+    Spells_OnMapStart()
+    #endif
 }
 public Action OnPlayerRunCmd(int client,int &buttons)
 {
@@ -309,7 +348,7 @@ public Action OnGetMaxHealth(int client, int &maxHealth)
 }
 public Action OnWeaponSwitch(int client, int weapon)
 {
-    if(HoovyClass[client] == HOOVY_MEDIC||HoovyClass[client] == HOOVY_LEAPER||meleeOnlyAllowed.BoolValue)
+    if(!CanHaveSecondary(client))
     {
         if(IsValidEntity(weapon))
         {
@@ -388,13 +427,16 @@ public Action Event_PointCaptured(Handle:hEvent, const String:strEventName[], bo
 {
     TFTeam team = view_as<TFTeam>(GetEventInt(hEvent,"team"))
     int index = team==TFTeam_Blue?1:0
-    HoovyScores[index]+=8
+    HoovyScores[index] = min(HoovyScores[index]+8,HOOVY_POINTS_LIMIT)
     PrintToChatAll("Team %s gets 8 points for capturing the point. Current balance: %i",index?"BLU":"RED",HoovyScores[index])
     return Plugin_Continue
 }
 public Action Event_RoundStart(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
     HoovyScores[0] = HoovyScores[1] = 0
+    #if SPELLS_STAGING
+    Spells_RoundStart()
+    #endif
 }
 public Action Event_Resupply(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
@@ -520,7 +562,8 @@ public ShowHelp(id,bool canreturn)
     strinfo[1] = canreturn?1:0
     strinfo[2] = '\0'
     for(int i=0;i<NUM_CLASSES;i++)
-    {  
+    {
+        if(ClassLimit[i]==-2)continue;
         strinfo[0] = i
         menu.AddItem(strinfo,ClassName[i])
     }
@@ -597,11 +640,11 @@ public HoovyBasicOperations()
   HoovyFlags[i] = 0
   GetClientAbsOrigin(i, HoovyCoords[i])
   RemoveUnwantedWeapons(i)
-  if(IsFakeClient(i)&&(HoovyClass[i]==HOOVY_MEDIC||meleeOnlyAllowed.BoolValue))setActiveSlot(i,TFWeaponSlot_Melee) // force medic bot to use melee
+  if(IsFakeClient(i)&&(!CanHaveSecondary(i)))setActiveSlot(i,TFWeaponSlot_Melee) // force medic bot to use melee
   switch(HoovyClass[i])
   {
    case(HOOVY_SCOUT):TF2_AddCondition(i, TFCond_SpeedBuffAlly, HOOVY_CYCLE_TIME+0.1);
-   case(HOOVY_LEAPER):setPlayerSpeed(i,HoovySpecialDelivery[i]?1.0:0.4);
+   case(HOOVY_LEAPER):if(!HoovySpecialDelivery[i])TF2_StunPlayer(i,HOOVY_CYCLE_TIME+0.1,0.3,TF_STUNFLAG_SLOWDOWN);
    case(HOOVY_BOXER):
    {
       if(getItemIndex(GetPlayerWeaponSlot(i, TFWeaponSlot_Melee))==43)TF2_AddCondition(i,TFCond_MarkedForDeathSilent,HOOVY_CYCLE_TIME+0.1)
@@ -631,6 +674,10 @@ public HoovyBasicOperations()
         ShowSyncHudText(i, hHudText, "Points:%i",HoovyScores[TeamScoresIndex(i)])
         CloseHandle(hHudText);
    }
+   case(HOOVY_GNOME):
+   {
+       TF2_AddCondition(i,TFCond_HalloweenTiny,HOOVY_CYCLE_TIME+0.1)
+   }
   }
  }
 }
@@ -639,13 +686,20 @@ public RemoveUnwantedWeapons(i)
    static int weapon
    if(!IsFakeClient(i))
    {
-       if(getActiveSlot(i)==TFWeaponSlot_Primary)setActiveSlot(i,HoovyClass[i]==HOOVY_MEDIC?TFWeaponSlot_Melee:TFWeaponSlot_Secondary)
+       static bool allowsecondary
+       allowsecondary = CanHaveSecondary(i)
+       if(getActiveSlot(i)==TFWeaponSlot_Primary)setActiveSlot(i,(!allowsecondary)?TFWeaponSlot_Melee:TFWeaponSlot_Secondary)
        TF2_RemoveWeaponSlot(i,TFWeaponSlot_Primary) // Anti-repick protection
        weapon = GetPlayerWeaponSlot(i, TFWeaponSlot_Secondary)
-       if(HoovyClass[i]==HOOVY_MEDIC||HoovyClass[i]==HOOVY_BOOMER||meleeOnlyAllowed.BoolValue)
+       if(!allowsecondary)
        {
-           if(weapon!=-1&&!IsFood(weapon))TF2_RemoveWeaponSlot(i,TFWeaponSlot_Secondary)
+           if(weapon!=-1&&!IsFood(weapon))
+           {
+               TF2_RemoveWeaponSlot(i,TFWeaponSlot_Secondary)
+//               setActiveSlot(i,TFWeaponSlot_Melee) // uncomment to disable a-posing
+           }
        }
+
        #if GBW_STAGING
        else if(HoovyClass[i]==HOOVY_COMISSAR)
        {
@@ -703,6 +757,10 @@ public CheckBuffZones()
         }
     }
 }
+public bool CanHaveSecondary(int client)
+{
+    return !(meleeOnlyAllowed.BoolValue||HoovyClass[client]==HOOVY_MEDIC||HoovyClass[client]==HOOVY_BOOMER||HoovyClass[client]==HOOVY_GNOME);
+}
 public bool CanPickClass(int client,int class)
 {
     return (!ClassLimit[class])||(ClassLimit[class]>countClass(client,class))
@@ -723,7 +781,8 @@ public GetScores(client)
 }
 public AddScores(int client,int scores)
 {
-    HoovyScores[TeamScoresIndex(client)] += scores
+    int index = TeamScoresIndex(client)
+    HoovyScores[index] = min(HoovyScores[index]+scores,HOOVY_POINTS_LIMIT)
 }
 public Action Timer_ResetJumping(Handle timer,int client)
 {
@@ -805,6 +864,12 @@ public Action VoiceCommand(client, const String:command[], argc)
         {
         TryBuilding(client,true)
         }
+    #if SPELLS_STAGING
+    case(HOOVY_GNOME):
+        {
+        ShowSpellMenu(client)
+        }
+    #endif
     }
     return Plugin_Continue
 }
