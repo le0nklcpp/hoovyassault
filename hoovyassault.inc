@@ -35,3 +35,16 @@ HOOVY_LEAPER,
 HOOVY_ENGINEER,
 NUM_CLASSES
 }
+forward OnHoovyTakeDamage(iVictim,iAttacker,float &damage,int damagetype,Float:damageForce[3], Float:damagePosition[3], damagecustom)
+forward OnHoovyTakeDamage_Post(iVictim,iAttacker,float &damage,int damagetype,Float:damageForce[3], Float:damagePosition[3], damagecustom)
+forward HoovyThink()
+typeset HoovyCallback
+{
+    function void(int id);
+    function int(int Victim,int Attacker,int inflictor,float &damage,int &damagetype,int &weapon);
+}
+native int RegisterHoovyClass(char[16]classname,char[255]classdesc,float params[3]=view_as<float>({1.0,1.0,1.0}),bool extraMeleeAccess=false,int ClassLimit=0)
+native void RegisterHoovyThinkCallback(int id,HoovyCallback cb)
+native void RegisterHoovyDamageCallback(int id,HoovyCallback cb)
+native void RegisterHoovyThinkCallback(int id,HoovyCallback cb)
+native void RegisterHoovySpawnCallback(int id,HoovyCallback cb)

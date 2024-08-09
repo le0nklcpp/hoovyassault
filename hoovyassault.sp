@@ -22,7 +22,8 @@
 #define HOOVY_POINTS_LIMIT 65
 
 #define GBW_STAGING 1 // set to 1 to enable the following features: Comissar SMG
-#define SPELLS_STAGING 0 // set to 1 to enable the following features: Spells
+#define SPELLS_STAGING 1 // set to 1 to enable the following features: Spells
+#define HOOVY_CLASSAPI_ENABLED 0 // set to 1 to enable Hoovy Assault Plugin API
 
 int HoovyClass[MAXPLAYERS]
 int HoovyFlags[MAXPLAYERS] // bitsum
@@ -185,12 +186,15 @@ char boomer_sounds[BOOMER_VO_NUM][] = {
 #if SPELLS_STAGING
 #include "hoovyassault_module_spells"
 #endif
+#if HOOVY_CLASSAPI_ENABLED
+#include "hoovyassault_module_classapi"
+#endif
 public Plugin myinfo = 
 {
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "04.08.24.0",
+ version = "10.08.24.0classupdate",
  url = ""
 };
 public OnPluginStart()
@@ -219,6 +223,9 @@ public OnPluginStart()
     #if SPELLS_STAGING
     Spells_OnPluginStart()
     #endif
+    #if HOOVY_CLASSAPI_ENABLED
+    Hoovyassault_Classapi_Init()
+    #endif
 }
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
 {
@@ -233,6 +240,9 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
     CreateNative("WithdrawHoovyScores",NativeWithdrawHoovyScores)
     CreateNative("GetHoovyScores", NativeGetHoovyScores)
     CreateNative("SetHoovyScores", NativeSetHoovyScores)
+    #if HOOVY_CLASSAPI_ENABLED
+    Hoovyassault_Classapi_Create_Natives()
+    #endif
     return APLRes_Success
 }
 public OnMapStart()
@@ -294,14 +304,28 @@ public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &dama
     static bool validVictim
     validVictim = ValidUser(iVictim)
     if(!ValidUser(iAttacker))return Plugin_Continue
+    #if HOOVY_CLASSAPI_ENABLED
+    static Action APIResult
+    APIResult = Hoovyassault_Classapi_TakeDamage(iVictim,iAttacker,inflictor,damage,damagetype,weapon)
+    if(APIResult!=Plugin_Continue)return APIResult
+    #endif
+    if(HoovyClass[iAttacker]==HOOVY_GNOME&&(damagetype&DMG_BURN))return Plugin_Continue
     if(HoovyFlags[iAttacker]&HOOVY_BIT_DMGBONUS)damage *= OFFICER_DMGBONUS
     if(validVictim)
     {
         if(HoovyFlags[iVictim]&HOOVY_BIT_DMGRES)damage  *= COMISSAR_DMGRES
+        #if HOOVY_CLASSAPI_ENABLED
+        OnClassApi(iVictim,damage = damage * HoovyExtraClassParams[ClassApiIndex(HoovyClass[iVictim])][Char_Dmgrespenalty])
+        else 
+        #endif
         damage = damage * ClassChars[HoovyClass[iVictim]][Char_Dmgrespenalty]
     }
     #if GBW_STAGING
     if(HoovyClass[iAttacker]==HOOVY_COMISSAR&&getActiveSlot(iAttacker)==TFWeaponSlot_Secondary)damage = damage * 1.25
+    else
+    #endif
+    #if HOOVY_CLASSAPI_ENABLED
+    OnClassApi(iAttacker,damage = damage * HoovyExtraClassParams[ClassApiIndex(HoovyClass[iAttacker])][Char_Dmgbonus])
     else
     #endif
     damage = damage * ClassChars[HoovyClass[iAttacker]][Char_Dmgbonus]
@@ -502,6 +526,14 @@ public ShowMainMenu(id)
       strinfo[0] = i
       menu.AddItem(strinfo,ClassName[i])
     }
+    #if HOOVY_CLASSAPI_ENABLED
+    for(int i=0;i<NumHoovyClasses;i++)
+    {
+        if(HoovyExtraClassLimit[i]==-2)continue
+        strinfo[0] = i+NUM_CLASSES
+        menu.AddItem(strinfo,HoovyExtraClassName[i])
+    }
+    #endif
     strinfo[0]++
     menu.AddItem(strinfo, "Help")
     strinfo[0]++
@@ -520,7 +552,11 @@ public MainMenuHandler(Handle menuid, MenuAction action, id, menu_item)
         char strinfo[2]
         GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo))
         int result = strinfo[0]
+        #if HOOVY_CLASSAPI_ENABLED
+        if(result<(NUM_CLASSES+NumHoovyClasses))
+        #else
         if(result<NUM_CLASSES)
+        #endif
         {
             if(!CanPickClass(id,result))
             {
@@ -535,6 +571,20 @@ public MainMenuHandler(Handle menuid, MenuAction action, id, menu_item)
             TF2_RespawnPlayer(id)
             PrintToChat(id,"You will be able to pick other class after death")
         }
+        #if HOOVY_CLASSAPI_ENABLED
+        else if(result==NUM_CLASSES+NumHoovyClasses)ShowHelp(id,true)
+        else if(result==NUM_CLASSES+NumHoovyClasses+1)
+        {
+            HoovyVisuals[id] = !HoovyVisuals[id]
+            ShowMainMenu(id)
+        }
+        else if(result==NUM_CLASSES+NumHoovyClasses+2)
+        {
+            PrintToChat(id,"You can download the source code at https://github.com/le0nklcpp/hoovyassault")
+            PrintToChat(id,"Note that the modification is licensed under GNU General Public License version 3.0")
+            ShowMainMenu(id)
+        }
+        #else
         else switch(result){
         case(NUM_CLASSES):
         {
@@ -549,7 +599,10 @@ public MainMenuHandler(Handle menuid, MenuAction action, id, menu_item)
         {
             PrintToChat(id,"You can download the source code at https://github.com/le0nklcpp/hoovyassault")
             PrintToChat(id,"Note that the modification is licensed under GNU General Public License version 3.0")
-        }}
+            ShowMainMenu(id)
+        }
+        }
+        #endif
     }
 }
 public ShowHelp(id,bool canreturn)
@@ -567,6 +620,14 @@ public ShowHelp(id,bool canreturn)
         strinfo[0] = i
         menu.AddItem(strinfo,ClassName[i])
     }
+    #if HOOVY_CLASSAPI_ENABLED
+    for(int i=0;i<NumHoovyClasses;i++)
+    {
+        if(HoovyExtraClassLimit[i]==-2)continue
+        strinfo[0] = i+NUM_CLASSES
+        menu.AddItem(strinfo,HoovyExtraClassName[i])
+    }
+    #endif
     menu.ExitButton = true
     if(canreturn)menu.ExitBackButton = true
     menu.Display( id, MENU_TIMEOUT*3)
@@ -587,10 +648,18 @@ public ShowClassHelp(id,classid,bool canreturn)
     if(!ValidUser(id))return
     CancelClientMenu(id)
     Menu menu = CreateMenu(ClassHelpHandler)
+    #if HOOVY_CLASSAPI_ENABLED
+    if(classid>=NUM_CLASSES)menu.SetTitle(HoovyExtraClassName[ClassApiIndex(classid)])
+    else
+    #endif
     menu.SetTitle(ClassName[classid])
     char strinfo[2]
     strinfo[0] = canreturn?1:0
     strinfo[1] = '\0'
+    #if HOOVY_CLASSAPI_ENABLED
+    if(classid>=NUM_CLASSES)menu.AddItem(strinfo,HoovyExtraClassDesc[ClassApiIndex(classid)])
+    else
+    #endif
     menu.AddItem(strinfo,ClassDescription[classid])
     menu.ExitBackButton = true
     menu.ExitButton = false
@@ -641,6 +710,10 @@ public HoovyBasicOperations()
   GetClientAbsOrigin(i, HoovyCoords[i])
   RemoveUnwantedWeapons(i)
   if(IsFakeClient(i)&&(!CanHaveSecondary(i)))setActiveSlot(i,TFWeaponSlot_Melee) // force medic bot to use melee
+  #if HOOVY_CLASSAPI_ENABLED
+  if(HoovyClass[i]>=NUM_CLASSES)Hoovyassault_Classapi_Think(i)
+  else 
+  #endif
   switch(HoovyClass[i])
   {
    case(HOOVY_SCOUT):TF2_AddCondition(i, TFCond_SpeedBuffAlly, HOOVY_CYCLE_TIME+0.1);
@@ -763,6 +836,9 @@ public bool CanHaveSecondary(int client)
 }
 public bool CanPickClass(int client,int class)
 {
+    #if HOOVY_CLASSAPI_ENABLED
+    if(class>=NUM_CLASSES)return (!HoovyExtraClassLimit[class]||(HoovyExtraClassLimit[class]>countClass(client,class)))
+    #endif
     return (!ClassLimit[class])||(ClassLimit[class]>countClass(client,class))
 }
 bool AttemptToBuy(int client,int amount,bool as_team=false)
@@ -836,6 +912,14 @@ public Action Timer_AfterSpawn(Handle timer, client)
         TF2_SetPlayerClass(client, TFClass_Heavy)
         TF2_RespawnPlayer(client)
     }
+    #if HOOVY_CLASSAPI_ENABLED
+    if(HoovyClass[client]>=NUM_CLASSES&&(!Hoovyassault_Classapi_OnSpawn(client)))
+    {
+        MadeHisChoice[client] = false
+        HoovyClass[client] = HOOVY_SOLDIER
+        TF2_RespawnPlayer(client)
+    }
+    #endif
 }
 public Action VoiceCommand(client, const String:command[], argc)
 {
@@ -852,6 +936,10 @@ public Action VoiceCommand(client, const String:command[], argc)
             return Plugin_Continue
         }
     }
+    #if HOOVY_CLASSAPI_ENABLED
+    if(HoovyClass[client]>=NUM_CLASSES)Hoovyassault_Classapi_Pootis(client)
+    else 
+    #endif
     switch(HoovyClass[client])
     {
     case(HOOVY_TRUMPETER):
@@ -1185,6 +1273,10 @@ public float getMaxHealth(id)
 {
     static float newmaxhealth 
     newmaxhealth = 300.0
+    #if HOOVY_CLASSAPI_ENABLED
+    OnClassApi(id,newmaxhealth *= HoovyExtraClassParams[ClassApiIndex(HoovyClass[id])][Char_Maxhealth])
+    else
+    #endif
     newmaxhealth *= ClassChars[HoovyClass[id]][Char_Maxhealth]
     if(HoovyFlags[id]&HOOVY_BIT_OVERHEAL)newmaxhealth += COMISSAR_OVERHEAL
     return newmaxhealth

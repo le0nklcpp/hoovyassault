@@ -27,6 +27,7 @@ int SpellMana[MAX_SPELLS]={
 15,
 23
 }
+int SpellJumpingCurse[MAXPLAYERS] = 0
 int SpellLabels[BOOK_SPELLS][2] // This is for captions that are taken from the array above
 int SpellIds[BOOK_SPELLS][2] // So the actual spells are scrambled for both teams lmao
 #define SPELLFLAG_DEBUFF (1<<1)
@@ -42,6 +43,7 @@ int SpellIds[BOOK_SPELLS][2] // So the actual spells are scrambled for both team
 #define SPELLFLAG_IN_RANGE (1<<11)
 #define SPELLFLAG_IN_BEAM (1<<12)
 #define SPELLFLAG_IN_EVERYWHERE (1<<13)
+#define SPELLFLAG_MAY_ON_EVERYONE (1<<14)
 
 #define SPELL_EFFECT_RADIUS 625.0
 
@@ -61,6 +63,7 @@ SPELL_DEATH,
 SPELL_BULLETPROOF,
 SPELL_INCARNATION,
 SPELL_SWIMMING,
+SPELL_JUMPING,
 NUM_SPELLS
 }
 int SpellFlags[]=
@@ -79,7 +82,8 @@ int SpellFlags[]=
 (SPELLFLAG_HARM|SPELLFLAG_ON_FOE|SPELLFLAG_IN_BEAM),
 (SPELLFLAG_BUFF|SPELLFLAG_ON_ALLY|SPELLFLAG_IN_RANGE),
 (SPELLFLAG_BUFF|SPELLFLAG_ON_ALLY|SPELLFLAG_IN_BEAM),
-(SPELLFLAG_FUN|SPELLFLAG_MAY_ON_ALLY|SPELLFLAG_MAY_ON_FOE|SPELLFLAG_ON_YOURSELF|SPELLFLAG_IN_EVERYWHERE)
+(SPELLFLAG_FUN|SPELLFLAG_MAY_ON_ALLY|SPELLFLAG_MAY_ON_FOE|SPELLFLAG_ON_YOURSELF|SPELLFLAG_IN_EVERYWHERE),
+(SPELLFLAG_FUN|SPELLFLAG_MAY_ON_EVERYONE|SPELLFLAG_MAY_ON_ALLY|SPELLFLAG_MAY_ON_FOE|SPELLFLAG_IN_EVERYWHERE)
 }
 int CurrentHoovyWizard
 int CurrentSpellFlags
@@ -89,20 +93,21 @@ typeset SpellCallback
 {
     function void (int client)
 }
-SpellCallback[15] SpellList
+SpellCallback[16] SpellList
 #define getSpellCb  SpellCallback cb = SpellList[CurrentSpell]
 #define IsAllowedToCast(%1) (((CurrentSpellFlags&SPELLFLAG_ON_YOURSELF)&&(CurrentHoovyWizard==%1))||((CurrentSpellFlags&SPELLFLAG_ON_ALLY)&&TF2_GetClientTeam(%1)==CurrentWizardTeam)||((CurrentSpellFlags&SPELLFLAG_ON_FOE)&&TF2_GetClientTeam(%1)!=CurrentWizardTeam))
 bool HoovySpellTraceFilter(int entity)
 {
     if(ValidUser(entity)&&IsAllowedToCast(entity))
     {
+        //LogMessage("Spell hit entity #%i",entity)
         getSpellCb
         Call_StartFunction(INVALID_HANDLE,cb)
         Call_PushCell(entity)
         Call_Finish()
-        return true
+        return false
     }
-    return false
+    return true
 }
 public Spells_OnPluginStart()
 {
@@ -122,6 +127,7 @@ public Spells_OnPluginStart()
     cb(SPELL_BULLETPROOF,SpellBulletproof)
     cb(SPELL_INCARNATION,SpellIncarnation)
     cb(SPELL_SWIMMING,SpellSwimming)
+    cb(SPELL_JUMPING,SpellJumping)
     #undef cb
 }
 float SpellMapBoundsMin[3],SpellMapBoundsMax[3]
@@ -136,6 +142,10 @@ Spells_RoundStart()
     ScrambleSpells(1)
     GetEntPropVector(0, Prop_Send, "m_WorldMaxs", SpellMapBoundsMax)
     GetEntPropVector(0, Prop_Send, "m_WorldMins", SpellMapBoundsMin)
+    for(int i=1;i<MaxClients;i++)
+    {
+        SpellJumpingCurse[i] = 0
+    }
 }
 public ShowSpellMenu(int client)
 {
@@ -242,6 +252,7 @@ stock TryCastingSpell(client,spell)
     if((CurrentSpellFlags&SPELLFLAG_MAY_ON_ALLY)&&(GetRandomInt(0,100)>50))CurrentSpellFlags |= SPELLFLAG_ON_ALLY
     if((CurrentSpellFlags&SPELLFLAG_MAY_ON_FOE)&&(GetRandomInt(0,100)>50))CurrentSpellFlags |= SPELLFLAG_ON_FOE
     if((CurrentSpellFlags&SPELLFLAG_MAY_ON_YOURSELF)&&(GetRandomInt(0,100)>50))CurrentSpellFlags |= SPELLFLAG_ON_YOURSELF
+    if((CurrentSpellFlags&SPELLFLAG_MAY_ON_EVERYONE)&&(GetRandomInt(0,100)>50))CurrentSpellFlags |= (SPELLFLAG_ON_ALLY|SPELLFLAG_ON_FOE|SPELLFLAG_ON_YOURSELF)
     if(CurrentSpellFlags&SPELLFLAG_IN_BEAM)CastDirectSpell(client)
     CastSpell()
     LogMessage("Casted spell:%i, on yourself: %i,on allies:%i, on foes:%i",CurrentSpell,CurrentSpellFlags&SPELLFLAG_ON_YOURSELF,CurrentSpellFlags&SPELLFLAG_ON_ALLY,CurrentSpellFlags&SPELLFLAG_ON_FOE)
@@ -253,7 +264,7 @@ stock CastDirectSpell(client)
     float flAng[3]
     GetClientEyePosition(client, flPos)
     GetClientEyeAngles(client, flAng)
-    TR_EnumerateEntities(flPos,flAng,MASK_SHOT,RayType_Infinite,HoovySpellTraceFilter)
+    TR_EnumerateEntities(flPos,flAng,MASK_SOLID,RayType_Infinite,HoovySpellTraceFilter)
 }
 stock CastSpell()
 {
@@ -332,6 +343,20 @@ void SpellIncarnation(int client)
 void SpellSwimming(int client)
 {
     TF2_AddCondition(client,TFCond_SwimmingCurse,20.0)
+}
+void SpellJumping(int client)
+{
+    SpellJumpingCurse[client] = 300
+    CreateTimer(0.25,JumpTimer,client)
+}
+public Action JumpTimer(Handle timer,i)
+{
+    if(SpellJumpingCurse[i])
+    {
+        FakeClientCommand(i,"+jump;wait 100;-jump")
+        SpellJumpingCurse[i]--
+        CreateTimer(0.25,JumpTimer,i)
+    }
 }
 public Action ClearPowerPlayTimer(Handle timer, i)
 {
