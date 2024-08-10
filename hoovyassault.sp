@@ -23,7 +23,7 @@
 
 #define GBW_STAGING 1 // set to 1 to enable the following features: Comissar SMG
 #define SPELLS_STAGING 1 // set to 1 to enable the following features: Spells
-#define HOOVY_CLASSAPI_ENABLED 0 // set to 1 to enable Hoovy Assault Plugin API
+#define HOOVY_CLASSAPI_ENABLED 1 // set to 1 to enable Hoovy Assault Plugin API
 
 int HoovyClass[MAXPLAYERS]
 int HoovyFlags[MAXPLAYERS] // bitsum
@@ -194,7 +194,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "10.08.24.1classupdate",
+ version = "10.08.24.2",
  url = ""
 };
 public OnPluginStart()
@@ -832,12 +832,18 @@ public CheckBuffZones()
 }
 public bool CanHaveSecondary(int client)
 {
+    #if HOOVY_CLASSAPI_ENABLED
+    if(HoovyClass[client]>=NUM_CLASSES)
+    {
+        return !(meleeOnlyAllowed.BoolValue||HoovyExtraClassMeleeOnlyAccess[ClassApiIndex(HoovyClass[client])])
+    }
+    #endif
     return !(meleeOnlyAllowed.BoolValue||HoovyClass[client]==HOOVY_MEDIC||HoovyClass[client]==HOOVY_BOOMER||HoovyClass[client]==HOOVY_GNOME);
 }
 public bool CanPickClass(int client,int class)
 {
     #if HOOVY_CLASSAPI_ENABLED
-    if(class>=NUM_CLASSES)return (!HoovyExtraClassLimit[class]||(HoovyExtraClassLimit[class]>countClass(client,class)))
+    if(class>=NUM_CLASSES)return (!HoovyExtraClassLimit[ClassApiIndex(class)]||(HoovyExtraClassLimit[ClassApiIndex(class)]>countClass(client,class)))
     #endif
     return (!ClassLimit[class])||(ClassLimit[class]>countClass(client,class))
 }

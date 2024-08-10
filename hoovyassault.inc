@@ -43,7 +43,7 @@ typeset HoovyCallback
     function void(int id);
     function int(int Victim,int Attacker,int inflictor,float &damage,int &damagetype,int &weapon);
 }
-native int RegisterHoovyClass(String: classname[],String: classdesc[],float maxhealth,float dmgbonus,float dmgvuln,bool extraMeleeAccess=false,int ClassLimit=0)
+native int RegisterHoovyClass(String: classname[],String: classdesc[],float maxhealth,float dmgbonus,float dmgvuln,bool meleeOnly=false,int ClassLimit=0)
 native void RegisterHoovyThinkCallback(int id,HoovyCallback cb)
 native void RegisterHoovyDamageCallback(int id,HoovyCallback cb)
 native void RegisterHoovySpawnCallback(int id,HoovyCallback cb)

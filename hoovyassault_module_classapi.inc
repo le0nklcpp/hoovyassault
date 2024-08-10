@@ -29,7 +29,7 @@ int NumHoovyClasses = 0
 char HoovyExtraClassDesc[MAX_CLASSAPI_LIMIT][256]
 char HoovyExtraClassName[MAX_CLASSAPI_LIMIT][16]
 float HoovyExtraClassParams[MAX_CLASSAPI_LIMIT][3]
-bool HoovyExtraClassMeleeAccess[MAX_CLASSAPI_LIMIT]
+bool HoovyExtraClassMeleeOnlyAccess[MAX_CLASSAPI_LIMIT]
 int HoovyExtraClassLimit[MAX_CLASSAPI_LIMIT] = -1
 
 
@@ -186,7 +186,7 @@ int NativeRegisterHoovyClass(Handle plugin,int numParams)
     HoovyExtraClassParams[NumHoovyClasses][0]=view_as<float>(GetNativeCell(3))
     HoovyExtraClassParams[NumHoovyClasses][1]=view_as<float>(GetNativeCell(4))
     HoovyExtraClassParams[NumHoovyClasses][2]=view_as<float>(GetNativeCell(5))
-    HoovyExtraClassMeleeAccess[NumHoovyClasses] = GetNativeCell(6)
+    HoovyExtraClassMeleeOnlyAccess[NumHoovyClasses] = GetNativeCell(6)
     HoovyExtraClassLimit[NumHoovyClasses] = GetNativeCell(7)
     NumHoovyClasses++
     return NUM_CLASSES+NumHoovyClasses-1
