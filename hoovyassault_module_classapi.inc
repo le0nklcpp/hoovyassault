@@ -189,5 +189,5 @@ int NativeRegisterHoovyClass(Handle plugin,int numParams)
     HoovyExtraClassMeleeAccess[NumHoovyClasses] = GetNativeCell(6)
     HoovyExtraClassLimit[NumHoovyClasses] = GetNativeCell(7)
     NumHoovyClasses++
-    return NUM_CLASSES+NumHoovyClasses-1
+    return NUM_CLASSES+NumHoovyClasses
 }
