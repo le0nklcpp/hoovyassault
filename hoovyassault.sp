@@ -194,7 +194,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "10.08.24.0classupdate",
+ version = "10.08.24.1classupdate",
  url = ""
 };
 public OnPluginStart()
@@ -913,11 +913,14 @@ public Action Timer_AfterSpawn(Handle timer, client)
         TF2_RespawnPlayer(client)
     }
     #if HOOVY_CLASSAPI_ENABLED
-    if(HoovyClass[client]>=NUM_CLASSES&&(!Hoovyassault_Classapi_OnSpawn(client)))
+    if(HoovyClass[client]>=NUM_CLASSES)
     {
+        if(!Hoovyassault_Classapi_OnSpawn(client))
+        {
         MadeHisChoice[client] = false
         HoovyClass[client] = HOOVY_SOLDIER
         TF2_RespawnPlayer(client)
+        }
     }
     #endif
 }

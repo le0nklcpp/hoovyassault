@@ -17,7 +17,7 @@ This module is optional and enables Hoovy Engine support (extension enabling cus
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #define MAX_CLASSAPI_LIMIT 32
-#define ClassApiIndex(%1) (%1-NUM_CLASSES+1)
+#define ClassApiIndex(%1) (%1-NUM_CLASSES)
 #define OnClassApi(%1,%2) if(HoovyClass[%1]>=NUM_CLASSES)%2
 enum
 {
@@ -141,7 +141,7 @@ bool Hoovyassault_Classapi_OnSpawn(int id)
     static int result
     static int classid
     result = 1
-    classid = ClassApiIndex(id)
+    classid = ClassApiIndex(HoovyClass[id])
     if(HoovyPlugins[classid][3]!=INVALID_HANDLE)
     {
         Call_StartFunction(HoovyPlugins[classid][3],HoovySpawnCallbacks[classid])
@@ -183,9 +183,11 @@ int NativeRegisterHoovyClass(Handle plugin,int numParams)
     if(NumHoovyClasses==MAX_CLASSAPI_LIMIT)ThrowNativeError(2,"Failed to register another class: class limit of %i classes reached. Try increasing MAX_CLASSAPI_LIMIT in source code",MAX_CLASSAPI_LIMIT)
     GetNativeString(1, HoovyExtraClassName[NumHoovyClasses], 16)
     GetNativeString(2, HoovyExtraClassDesc[NumHoovyClasses], 255)
-    GetNativeArray(3,HoovyExtraClassParams[NumHoovyClasses],3)
-    HoovyExtraClassMeleeAccess[NumHoovyClasses] = GetNativeCell(4)
-    HoovyExtraClassLimit[NumHoovyClasses] = GetNativeCell(5)
+    HoovyExtraClassParams[NumHoovyClasses][0]=view_as<float>(GetNativeCell(3))
+    HoovyExtraClassParams[NumHoovyClasses][1]=view_as<float>(GetNativeCell(4))
+    HoovyExtraClassParams[NumHoovyClasses][2]=view_as<float>(GetNativeCell(5))
+    HoovyExtraClassMeleeAccess[NumHoovyClasses] = GetNativeCell(6)
+    HoovyExtraClassLimit[NumHoovyClasses] = GetNativeCell(7)
     NumHoovyClasses++
     return NUM_CLASSES+NumHoovyClasses-1
 }
