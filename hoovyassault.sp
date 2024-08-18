@@ -194,7 +194,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "10.08.24.2",
+ version = "18.08.24.2",
  url = ""
 };
 public OnPluginStart()
@@ -983,7 +983,7 @@ public Action SayCommand(client, const String:command[], argc)
     }
     return Plugin_Continue
 }
-// rtd plugin from linux_lover (abkowald@gmail.com)
+// rtd plugin from linux_lover https://forums. alliedmods. net/showthread.php?p=666222
 AttachParticle(iEntity, const String:strParticleEffect[], const String:strAttachPoint[]="", Float:flOffsetZ=0.0, Float:flSelfDestruct=0.0)
 {
     new iParticle = CreateEntityByName("info_particle_system");

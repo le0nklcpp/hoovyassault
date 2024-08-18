@@ -64,6 +64,7 @@ SPELL_BULLETPROOF,
 SPELL_INCARNATION,
 SPELL_SWIMMING,
 SPELL_JUMPING,
+SPELL_SPEEDUP,
 NUM_SPELLS
 }
 int SpellFlags[]=
@@ -83,7 +84,8 @@ int SpellFlags[]=
 (SPELLFLAG_BUFF|SPELLFLAG_ON_ALLY|SPELLFLAG_IN_RANGE),
 (SPELLFLAG_BUFF|SPELLFLAG_ON_ALLY|SPELLFLAG_IN_BEAM),
 (SPELLFLAG_FUN|SPELLFLAG_MAY_ON_ALLY|SPELLFLAG_MAY_ON_FOE|SPELLFLAG_ON_YOURSELF|SPELLFLAG_IN_EVERYWHERE),
-(SPELLFLAG_FUN|SPELLFLAG_MAY_ON_EVERYONE|SPELLFLAG_MAY_ON_ALLY|SPELLFLAG_MAY_ON_FOE|SPELLFLAG_IN_EVERYWHERE)
+(SPELLFLAG_FUN|SPELLFLAG_MAY_ON_EVERYONE|SPELLFLAG_MAY_ON_ALLY|SPELLFLAG_MAY_ON_FOE|SPELLFLAG_IN_EVERYWHERE),
+(SPELLFLAG_BUFF|SPELLFLAG_ON_ALLY|SPELLFLAG_IN_RANGE)
 }
 int CurrentHoovyWizard
 int CurrentSpellFlags
@@ -93,7 +95,7 @@ typeset SpellCallback
 {
     function void (int client)
 }
-SpellCallback[16] SpellList
+SpellCallback[17] SpellList
 #define getSpellCb  SpellCallback cb = SpellList[CurrentSpell]
 #define IsAllowedToCast(%1) (((CurrentSpellFlags&SPELLFLAG_ON_YOURSELF)&&(CurrentHoovyWizard==%1))||((CurrentSpellFlags&SPELLFLAG_ON_ALLY)&&TF2_GetClientTeam(%1)==CurrentWizardTeam)||((CurrentSpellFlags&SPELLFLAG_ON_FOE)&&TF2_GetClientTeam(%1)!=CurrentWizardTeam))
 bool HoovySpellTraceFilter(int entity)
@@ -128,6 +130,7 @@ public Spells_OnPluginStart()
     cb(SPELL_INCARNATION,SpellIncarnation)
     cb(SPELL_SWIMMING,SpellSwimming)
     cb(SPELL_JUMPING,SpellJumping)
+    cb(SPELL_SPEEDUP,SpellSpeedup)
     #undef cb
 }
 float SpellMapBoundsMin[3],SpellMapBoundsMax[3]
