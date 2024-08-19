@@ -194,7 +194,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "19.08.24.0",
+ version = "19.08.24.1",
  url = ""
 };
 public OnPluginStart()
@@ -465,7 +465,6 @@ public Action Event_RoundStart(Handle:hEvent, const String:strEventName[], bool:
     for(int i=1;i<MaxClients;i++)
     {
         HoovyFlags[i] = 0
-        HoovyClass[i] = HOOVY_SOLDIER
         MadeHisChoice[i] = false
     }
     #if SPELLS_STAGING
