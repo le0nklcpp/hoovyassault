@@ -27,7 +27,7 @@ int SpellMana[MAX_SPELLS]={
 15,
 23
 }
-int SpellJumpingCurse[MAXPLAYERS] = 0
+int SpellJumpingCurse[MAXPLAYERS]
 int SpellLabels[BOOK_SPELLS][2] // This is for captions that are taken from the array above
 int SpellIds[BOOK_SPELLS][2] // So the actual spells are scrambled for both teams lmao
 #define SPELLFLAG_DEBUFF (1<<1)
@@ -95,7 +95,7 @@ typeset SpellCallback
 {
     function void (int client)
 }
-SpellCallback[17] SpellList
+SpellCallback SpellList[17]
 #define getSpellCb  SpellCallback cb = SpellList[CurrentSpell]
 #define IsAllowedToCast(%1) (((CurrentSpellFlags&SPELLFLAG_ON_YOURSELF)&&(CurrentHoovyWizard==%1))||((CurrentSpellFlags&SPELLFLAG_ON_ALLY)&&TF2_GetClientTeam(%1)==CurrentWizardTeam)||((CurrentSpellFlags&SPELLFLAG_ON_FOE)&&TF2_GetClientTeam(%1)!=CurrentWizardTeam))
 bool HoovySpellTraceFilter(int entity)
@@ -350,18 +350,20 @@ void SpellSwimming(int client)
 void SpellJumping(int client)
 {
     SpellJumpingCurse[client] = 300
-    CreateTimer(0.25,JumpTimer,client)
+    CreateTimer(0.25,JumpTimer,client,TIMER_REPEAT)
 }
 public Action JumpTimer(Handle timer,i)
 {
-    if(SpellJumpingCurse[i])
+    if(ValidUser(i)&&SpellJumpingCurse[i])
     {
         FakeClientCommand(i,"+jump;wait 100;-jump")
         SpellJumpingCurse[i]--
-        CreateTimer(0.25,JumpTimer,i)
+        return Plugin_Continue
     }
+    return Plugin_Stop
 }
 public Action ClearPowerPlayTimer(Handle timer, i)
 {
     if(ValidUser(i))TF2_SetPlayerPowerPlay(i,false)
+    return Plugin_Stop
 }

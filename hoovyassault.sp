@@ -27,16 +27,16 @@
 
 int HoovyClass[MAXPLAYERS]
 int HoovyFlags[MAXPLAYERS] // bitsum
-int HoovyRage[MAXPLAYERS] = 0
-bool HoovyVisuals[MAXPLAYERS] = true
+int HoovyRage[MAXPLAYERS]
+bool HoovyVisuals[MAXPLAYERS]
 float HoovyCoords[MAXPLAYERS][3] // position
 float HoovyMaxHealth[MAXPLAYERS]
-int HoovyScores[2] = 0 // 0 = RED, 1 = BLU
+int HoovyScores[2] = {0,0} // 0 = RED, 1 = BLU
 
-bool HoovyValid[MAXPLAYERS] = false
-bool HoovySpecialDelivery[MAXPLAYERS] = false
-bool MadeHisChoice[MAXPLAYERS] = false
-bool BannerDeployed[MAXPLAYERS] = false
+bool HoovyValid[MAXPLAYERS]
+bool HoovySpecialDelivery[MAXPLAYERS]
+bool MadeHisChoice[MAXPLAYERS]
+bool BannerDeployed[MAXPLAYERS]
 
 
 int BeamSprite[2],HaloSprite
@@ -194,12 +194,12 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "18.08.24.2",
+ version = "19.08.24.0",
  url = ""
 };
 public OnPluginStart()
 {
-    for(int i=1;i<MaxClients;i++){HoovyClass[i] = HoovyFlags[i] = HoovyRage[i] = 0;if(IsClientInGame(i))doSDKHooks(i);}
+    for(int i=1;i<MaxClients;i++){HoovyClass[i] = HoovyFlags[i] = HoovyRage[i] = 0;HoovyVisuals[i] = true;HoovySpecialDelivery[i] = MadeHisChoice[i] = BannerDeployed[i] = false;if(IsClientInGame(i))doSDKHooks(i);}
     //LoadTranslations("hoovy.phrases")
     CreateTimer(HOOVY_CYCLE_TIME,UpdateHoovies,_, TIMER_REPEAT)
     CreateTimer(MEDIC_TICK,HealTimer,_,TIMER_REPEAT)
@@ -410,19 +410,22 @@ public Action Event_PlayerDeath(Handle:hEvent, const String:strEventName[], bool
             if(ValidUser(iAttacker))AddScores(iAttacker,2)
         }
     }
+    return Plugin_Continue
 }
 public Action Event_KilledCappingPlayer(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
     int killer = GetEventInt(hEvent,"killer")
     if(ValidUser(killer))AddScores(killer,1)
+    return Plugin_Continue
 }
 public Action Event_ItemPickup(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
     int user = GetClientOfUserId(GetEventInt(hEvent, "userid"))
     static char itemid[28]
     GetEventString(hEvent,"item",itemid,sizeof itemid)
-    if(HoovyClass[user] != HOOVY_SCOUT)return
+    if(HoovyClass[user] != HOOVY_SCOUT)return Plugin_Continue
     if(StrContains(itemid,"medkit",false)!=-1)SetEntityHealth(user,RoundToFloor(300.0*ClassChars[HOOVY_SCOUT][Char_Maxhealth]))
+    return Plugin_Continue
 }
 public Action Event_PlayerSpawn(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
@@ -435,6 +438,7 @@ public Action Event_PlayerSpawn(Handle:hEvent, const String:strEventName[], bool
     {
         CreateTimer(2.0,Timer_AfterSpawn,client)
     }
+    return Plugin_Continue
 }
 public Action Event_FlagEvent(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
@@ -458,15 +462,23 @@ public Action Event_PointCaptured(Handle:hEvent, const String:strEventName[], bo
 public Action Event_RoundStart(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
     HoovyScores[0] = HoovyScores[1] = 0
+    for(int i=1;i<MaxClients;i++)
+    {
+        HoovyFlags[i] = 0
+        HoovyClass[i] = HOOVY_SOLDIER
+        MadeHisChoice[i] = false
+    }
     #if SPELLS_STAGING
     Spells_RoundStart()
     #endif
+    return Plugin_Continue
 }
 public Action Event_Resupply(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
     new client = GetClientOfUserId(GetEventInt(hEvent, "userid"))
     RemoveUnwantedWeapons(client)
     HoovySpecialDelivery[client] = false
+    return Plugin_Continue
 }
 public Action Event_StealSandwich(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
@@ -477,6 +489,7 @@ public Action Event_StealSandwich(Handle:hEvent, const String:strEventName[], bo
         PrintToChatAll("Ooops, somebody just stepped on the wrong sandwich")
         ExplodeSandwich(target,owner)
     }
+    return Plugin_Continue
 }
 public OnClientConnected(id)
 {
@@ -486,6 +499,7 @@ public OnClientConnected(id)
     HoovySpecialDelivery[id] = false
     MadeHisChoice[id] = false
     HoovyVisuals[id] = true
+    BannerDeployed[id] = false
 }
 public OnClientPutInServer(client)
 {
@@ -869,25 +883,29 @@ public AddScores(int client,int scores)
 public Action Timer_ResetJumping(Handle timer,int client)
 {
     HoovySpecialDelivery[client] = false
+    return Plugin_Stop
 }
 public Action Timer_RemoveSandwich(Handle timer, int client)
 {
     int ent = findMySandwich(client)
     if(ent!=-1&&IsValidEntity(ent))AcceptEntityInput(ent, "Kill")
+    return Plugin_Stop
 }
 public Action ExplosiveSandwichTimer(Handle timer,int client)
 {
     HoovySpecialDelivery[client] = false
     static int entity
     entity = findMySandwich(client)
-    if(entity==-1)return
+    if(entity==-1)return Plugin_Stop
     ExplodeSandwich(entity,client)
     CreateTimer(1.0,Timer_RemoveSandwich,client)
+    return Plugin_Stop
 }
 public Action HealTimer(Handle timer)
 {
     static int i
     for(i=1;i<MaxClients;i++)if(ValidUser(i))TryHealing(i)
+    return Plugin_Continue
 }
 public Action Timer_DeleteParticle(Handle:hTimer, any:iRefEnt)
 {
@@ -903,10 +921,11 @@ public Action UpdateHoovies(Handle timer)
 {
     HoovyBasicOperations()
     CheckBuffZones()
+    return Plugin_Continue
 }
 public Action Timer_AfterSpawn(Handle timer, client)
 {
-    if(!ValidUser(client))return
+    if(!ValidUser(client))return Plugin_Continue
     if(!IsFakeClient(client))
     {
         if(!MadeHisChoice[client])ShowMainMenu(client)
@@ -929,6 +948,7 @@ public Action Timer_AfterSpawn(Handle timer, client)
         }
     }
     #endif
+    return Plugin_Continue
 }
 public Action VoiceCommand(client, const String:command[], argc)
 {
@@ -1316,6 +1336,7 @@ int NativeGetHoovyClass(Handle plugin, int numParams)
 any NativeSetHoovyClass(Handle plugin, int numParams)
 {
     HoovyClass[GetNativeCell(1)] = GetNativeCell(2)
+    return 0
 }
 any NativeSetHoovyScores(Handle plugin,int numParams)
 {
@@ -1324,6 +1345,7 @@ any NativeSetHoovyScores(Handle plugin,int numParams)
     bool asTeam = GetNativeCell(3)
     if(asTeam)HoovyScores[view_as<TFTeam>(index)==TFTeam_Blue?1:0] = amount
     else HoovyScores[TeamScoresIndex(index)] = amount
+    return 0
 }
 int NativeGetHoovyScores(Handle plugin,int numParams)
 {
@@ -1339,6 +1361,7 @@ any NativeAddHoovyScores(Handle plugin,int numParams)
     bool asTeam = GetNativeCell(3)
     if(asTeam)HoovyScores[view_as<TFTeam>(index)==TFTeam_Blue?1:0] += amount
     else HoovyScores[TeamScoresIndex(index)] += amount
+    return 0
 }
 int NativeWithdrawHoovyScores(Handle plugin,int numParams)
 {

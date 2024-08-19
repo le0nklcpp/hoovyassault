@@ -30,13 +30,16 @@ char HoovyExtraClassDesc[MAX_CLASSAPI_LIMIT][256]
 char HoovyExtraClassName[MAX_CLASSAPI_LIMIT][16]
 float HoovyExtraClassParams[MAX_CLASSAPI_LIMIT][3]
 bool HoovyExtraClassMeleeOnlyAccess[MAX_CLASSAPI_LIMIT]
-int HoovyExtraClassLimit[MAX_CLASSAPI_LIMIT] = -1
+int HoovyExtraClassLimit[MAX_CLASSAPI_LIMIT]
 
 
 
 typeset HoovyCallback
 {
     function void(int id);
+}
+typeset HoovyDmgCallback
+{
     function int(int Victim,int Attacker,int inflictor,float &damage,int &damagetype,int &weapon);
 }
 void DummyThink(int id)
@@ -48,15 +51,16 @@ int DummyAttack(int Victim,int Attacker,int inflictor,float &damage,int &damaget
     return HOOVY_CB_IGNORED
 }
 Handle HoovyPlugins[MAX_CLASSAPI_LIMIT][4]
-HoovyCallback HoovyThinkCallbacks[MAX_CLASSAPI_LIMIT]
-HoovyCallback HoovyAttackCallbacks[MAX_CLASSAPI_LIMIT]
-HoovyCallback HoovyPootisCallbacks[MAX_CLASSAPI_LIMIT]
-HoovyCallback HoovySpawnCallbacks[MAX_CLASSAPI_LIMIT]
+Function HoovyThinkCallbacks[MAX_CLASSAPI_LIMIT]
+Function HoovyAttackCallbacks[MAX_CLASSAPI_LIMIT]
+Function HoovyPootisCallbacks[MAX_CLASSAPI_LIMIT]
+Function HoovySpawnCallbacks[MAX_CLASSAPI_LIMIT]
 
 void Hoovyassault_Classapi_Init()
 {
     for(int i=0;i<MAX_CLASSAPI_LIMIT;i++)
     {
+        HoovyExtraClassLimit[i] = -1
         HoovyPlugins[i][0] = HoovyPlugins[i][1] = HoovyPlugins[i][2] = HoovyPlugins[i][3] = INVALID_HANDLE
         HoovyThinkCallbacks[i] = DummyThink
         HoovyAttackCallbacks[i] = DummyAttack
@@ -153,34 +157,58 @@ bool Hoovyassault_Classapi_OnSpawn(int id)
 any NativeRegisterHoovyThinkCallback(Handle plugin,int numParams)
 {
     int classid = ClassApiIndex(GetNativeCell(1))
-    if(classid<0||classid>NumHoovyClasses)ThrowNativeError(1,"Failed to register callback for %s class %i(%i classes total)",classid<0?"hardcoded":"non-existent",classid,NumHoovyClasses+NUM_CLASSES-1)
-    HoovyThinkCallbacks[classid] = view_as<HoovyCallback>(GetNativeFunction(2))
+    if(classid<0||classid>NumHoovyClasses)
+    {
+        ThrowNativeError(1,"Failed to register callback for %s class %i(%i classes total)",classid<0?"hardcoded":"non-existent",classid,NumHoovyClasses+NUM_CLASSES-1)
+        return -1
+    }
+    HoovyThinkCallbacks[classid] = GetNativeFunction(2)
     HoovyPlugins[classid][0] = plugin
+    return 0
 }
 any NativeRegisterHoovyDamageCallback(Handle plugin,int numParams)
 {
     int classid = ClassApiIndex(GetNativeCell(1))
-    if(classid<0||classid>NumHoovyClasses)ThrowNativeError(1,"Failed to register callback for %s class %i(%i classes total)",classid<0?"hardcoded":"non-existent",classid,NumHoovyClasses+NUM_CLASSES-1)
-    HoovyAttackCallbacks[classid] = view_as<HoovyCallback>(GetNativeFunction(2))
+    if(classid<0||classid>NumHoovyClasses)
+    {
+        ThrowNativeError(1,"Failed to register callback for %s class %i(%i classes total)",classid<0?"hardcoded":"non-existent",classid,NumHoovyClasses+NUM_CLASSES-1)
+        return -1
+    }
+    HoovyAttackCallbacks[classid] = GetNativeFunction(2)
     HoovyPlugins[classid][1] = plugin
+    return 0
 }
 any NativeRegisterHoovyPootisCallback(Handle plugin,int numParams)
 {
     int classid = ClassApiIndex(GetNativeCell(1))
-    if(classid<0||classid>NumHoovyClasses)ThrowNativeError(1,"Failed to register callback for %s class %i(%i classes total)",classid<0?"hardcoded":"non-existent",classid,NumHoovyClasses+NUM_CLASSES-1)
-    HoovyPootisCallbacks[classid] = view_as<HoovyCallback>(GetNativeFunction(2))
+    if(classid<0||classid>NumHoovyClasses)
+    {
+        ThrowNativeError(1,"Failed to register callback for %s class %i(%i classes total)",classid<0?"hardcoded":"non-existent",classid,NumHoovyClasses+NUM_CLASSES-1)
+        return -1
+    }
+    HoovyPootisCallbacks[classid] = GetNativeFunction(2)
     HoovyPlugins[classid][2] = plugin
+    return 0
 }
 any NativeRegisterHoovySpawnCallback(Handle plugin,int numParams)
 {
     int classid = ClassApiIndex(GetNativeCell(1))
-    if(classid<0||classid>NumHoovyClasses)ThrowNativeError(1,"Failed to register callback for %s class %i(%i classes total)",classid<0?"hardcoded":"non-existent",classid,NumHoovyClasses+NUM_CLASSES-1)
-    HoovySpawnCallbacks[classid] = view_as<HoovyCallback>(GetNativeFunction(2))
+    if(classid<0||classid>NumHoovyClasses)
+    {
+        ThrowNativeError(1,"Failed to register callback for %s class %i(%i classes total)",classid<0?"hardcoded":"non-existent",classid,NumHoovyClasses+NUM_CLASSES-1)
+        return -1
+    }
+    HoovySpawnCallbacks[classid] = GetNativeFunction(2)
     HoovyPlugins[classid][3] = plugin
+    return 0
 }
 int NativeRegisterHoovyClass(Handle plugin,int numParams)
 {
-    if(NumHoovyClasses==MAX_CLASSAPI_LIMIT)ThrowNativeError(2,"Failed to register another class: class limit of %i classes reached. Try increasing MAX_CLASSAPI_LIMIT in source code",MAX_CLASSAPI_LIMIT)
+    if(NumHoovyClasses==MAX_CLASSAPI_LIMIT)
+    {
+        ThrowNativeError(2,"Failed to register another class: class limit of %i classes reached. Try increasing MAX_CLASSAPI_LIMIT in source code",MAX_CLASSAPI_LIMIT)
+        return -1
+    }
     GetNativeString(1, HoovyExtraClassName[NumHoovyClasses], 16)
     GetNativeString(2, HoovyExtraClassDesc[NumHoovyClasses], 255)
     HoovyExtraClassParams[NumHoovyClasses][0]=view_as<float>(GetNativeCell(3))

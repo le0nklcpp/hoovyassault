@@ -24,7 +24,7 @@
 #define AAAAAAAAAAAAAA 120.0
 
 int AAAAAAAAAAAA = -1
-bool A_A[MAXPLAYERS] = false
+bool A_A[MAXPLAYERS]
 #define AAAAAAAAA     TF2_AddCondition(A,TFCond_HalloweenBombHead,HOOVY_CYCLE_TIME+0.1);TF2_AddCondition(A,TFCond_SpeedBuffAlly,HOOVY_CYCLE_TIME+0.1);GetClientAbsOrigin(A,AAAAAAA)
 
 #define is_AA(%1) (IsClientInGame(%1)&&IsPlayerAlive(%1))
@@ -51,6 +51,7 @@ public Action Timer_AAAA(Handle timer,AAAAAAAAAAAAAAA)
         CreateTimer(1.15,Timer_AAAA,AAAAAAAAAAAAAAA) // AAAAAAAAAAAAAAAA
     }
     else A_A[AAAAAAAAAAAAAAA] = false
+    return Plugin_Continue
 }
 int AAA(int A)
 {
@@ -129,6 +130,13 @@ public Action Timer_DeleteParticle(Handle:hTimer, any:iRefEnt)
 	}
 	
 	return Plugin_Handled;
+}
+public OnPluginStart()
+{
+    for(int A=1;A<MaxClients;A++)
+    {
+        A_A[A] = false
+    }
 }
 public OnAllPluginsLoaded()
 {
