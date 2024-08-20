@@ -39,6 +39,9 @@ bool MadeHisChoice[MAXPLAYERS]
 bool BannerDeployed[MAXPLAYERS]
 
 
+bool HoovyPrimaryUnrestricted[MAXPLAYERS]
+bool HoovyClassUnrestricted[MAXPLAYERS]
+
 int BeamSprite[2],HaloSprite
 
 public bool IsFood(weapon)
@@ -194,12 +197,12 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "19.08.24.1",
+ version = "20.08.24.1",
  url = ""
 };
 public OnPluginStart()
 {
-    for(int i=1;i<MaxClients;i++){HoovyClass[i] = HoovyFlags[i] = HoovyRage[i] = 0;HoovyVisuals[i] = true;HoovySpecialDelivery[i] = MadeHisChoice[i] = BannerDeployed[i] = false;if(IsClientInGame(i))doSDKHooks(i);}
+    for(int i=1;i<MaxClients;i++){HoovyClass[i] = HoovyFlags[i] = HoovyRage[i] = 0;HoovyVisuals[i] = true;HoovySpecialDelivery[i] = MadeHisChoice[i] = BannerDeployed[i] = HoovyClassUnrestricted[i] = HoovyPrimaryUnrestricted[i] = false;if(IsClientInGame(i))doSDKHooks(i);}
     //LoadTranslations("hoovy.phrases")
     CreateTimer(HOOVY_CYCLE_TIME,UpdateHoovies,_, TIMER_REPEAT)
     CreateTimer(MEDIC_TICK,HealTimer,_,TIMER_REPEAT)
@@ -240,6 +243,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
     CreateNative("WithdrawHoovyScores",NativeWithdrawHoovyScores)
     CreateNative("GetHoovyScores", NativeGetHoovyScores)
     CreateNative("SetHoovyScores", NativeSetHoovyScores)
+    CreateNative("SetHoovyPrimary", NativeSetAllowPrimary)
+    CreateNative("SetHoovyClassRestriction", NativeSetHoovyClassRestriction)
     #if HOOVY_CLASSAPI_ENABLED
     Hoovyassault_Classapi_Create_Natives()
     #endif
@@ -434,6 +439,8 @@ public Action Event_PlayerSpawn(Handle:hEvent, const String:strEventName[], bool
     HoovyMaxHealth[client] = getMaxHealth(client)
     HoovyRage[client] = 0
     BannerDeployed[client] = false
+    HoovyPrimaryUnrestricted[client] = false
+    HoovyClassUnrestricted[client] = false
     if(ValidUser(client))
     {
         CreateTimer(2.0,Timer_AfterSpawn,client)
@@ -496,6 +503,8 @@ public OnClientConnected(id)
     HoovyFlags[id] = 0
     HoovyRage[id] = 0
     HoovySpecialDelivery[id] = false
+    HoovyPrimaryUnrestricted[id] = false
+    HoovyClassUnrestricted[id] = false
     MadeHisChoice[id] = false
     HoovyVisuals[id] = true
     BannerDeployed[id] = false
@@ -507,6 +516,8 @@ public OnClientPutInServer(client)
 public void OnClientDisconnect(int client)
 {
     removeSDKHooks(client)
+    HoovyPrimaryUnrestricted[client] = false
+    HoovyClassUnrestricted[client] = false
     HoovyVisuals[client] = false
     HoovyValid[client] = false
     DestroyClientBuildings(client, "obj_sentrygun")
@@ -774,8 +785,11 @@ public RemoveUnwantedWeapons(i)
    {
        static bool allowsecondary
        allowsecondary = CanHaveSecondary(i)
-       if(getActiveSlot(i)==TFWeaponSlot_Primary)setActiveSlot(i,(!allowsecondary)?TFWeaponSlot_Melee:TFWeaponSlot_Secondary)
-       TF2_RemoveWeaponSlot(i,TFWeaponSlot_Primary) // Anti-repick protection
+       if(!HoovyPrimaryUnrestricted[i]&&getActiveSlot(i)==TFWeaponSlot_Primary)
+       {
+           setActiveSlot(i,(!allowsecondary)?TFWeaponSlot_Melee:TFWeaponSlot_Secondary)
+           TF2_RemoveWeaponSlot(i,TFWeaponSlot_Primary) // Anti-repick protection
+       }
        weapon = GetPlayerWeaponSlot(i, TFWeaponSlot_Secondary)
        if(!allowsecondary)
        {
@@ -796,7 +810,10 @@ public RemoveUnwantedWeapons(i)
                {
                    //LogError("Failed to create tf_weapon_smg")
                }
-               else SetAmmo(i,GetPlayerWeaponSlot(i,TFWeaponSlot_Secondary),100)
+               else {
+                   setActiveSlot(i,TFWeaponSlot_Secondary)
+                   SetAmmo(i,GetPlayerWeaponSlot(i,TFWeaponSlot_Secondary),100)
+               }
            }
        }
        #endif
@@ -930,12 +947,6 @@ public Action Timer_AfterSpawn(Handle timer, client)
         if(!MadeHisChoice[client])ShowMainMenu(client)
     }
     else HoovyClass[client] = PickBotClass(client)
-    if(TF2_GetPlayerClass(client)!=TFClass_Heavy)
-    {
-        MadeHisChoice[client] = false
-        TF2_SetPlayerClass(client, TFClass_Heavy)
-        TF2_RespawnPlayer(client)
-    }
     #if HOOVY_CLASSAPI_ENABLED
     if(HoovyClass[client]>=NUM_CLASSES)
     {
@@ -945,6 +956,12 @@ public Action Timer_AfterSpawn(Handle timer, client)
         HoovyClass[client] = HOOVY_SOLDIER
         TF2_RespawnPlayer(client)
         }
+    }
+    if(TF2_GetPlayerClass(client)!=TFClass_Heavy&&!HoovyClassUnrestricted[client])
+    {
+        MadeHisChoice[client] = false
+        TF2_SetPlayerClass(client, TFClass_Heavy)
+        TF2_RespawnPlayer(client)
     }
     #endif
     return Plugin_Continue
@@ -1360,6 +1377,16 @@ any NativeAddHoovyScores(Handle plugin,int numParams)
     bool asTeam = GetNativeCell(3)
     if(asTeam)HoovyScores[view_as<TFTeam>(index)==TFTeam_Blue?1:0] += amount
     else HoovyScores[TeamScoresIndex(index)] += amount
+    return 0
+}
+any NativeSetAllowPrimary(Handle plugin,int numParams)
+{
+    HoovyPrimaryUnrestricted[GetNativeCell(1)] = view_as<bool>(GetNativeCell(2))
+    return 0
+}
+any NativeSetHoovyClassRestriction(Handle plugin,int numparams)
+{
+    HoovyClassUnrestricted[GetNativeCell(1)] = !(view_as<bool>(GetNativeCell(2)))
     return 0
 }
 int NativeWithdrawHoovyScores(Handle plugin,int numParams)

@@ -53,7 +53,6 @@ stock CreateWeapon(int client, char[] classname, int itemindex, int level = 0)
 
     DispatchSpawn(weapon)
     SDKCall(g_hWeaponEquip, client, weapon)
-    setActiveSlot(client,TFWeaponSlot_Secondary)
     return true;
 }
 stock SetAmmo(client,weapon,int amount)

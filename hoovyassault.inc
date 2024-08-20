@@ -1,9 +1,11 @@
 native int GetHoovyClass(int client);
 native int SetHoovyClass(int client,int class);
-native int GetHoovyScores(int client);
+native int GetHoovyScores(int client,bool as_team = false);
 native int SetHoovyScores(int client,int sc,bool as_team=false);
+native void SetHoovyClassRestriction(int client,bool restrict = true);
 native void AddHoovyScores(int client,int sc,bool as_team=false);
 native bool WithdrawHoovyScores(int client,int amount,bool as_team=false);
+native void SetHoovyPrimary(int client,bool allow = true)
 #define HOOVY_CYCLE_TIME 0.2
 #define HOOVY_EFFECTS_RADIUS 315.0
 #define MENU_TIMEOUT 4
@@ -35,15 +37,20 @@ HOOVY_LEAPER,
 HOOVY_ENGINEER,
 NUM_CLASSES
 }
-forward OnHoovyTakeDamage(iVictim,iAttacker,float &damage,int damagetype,Float:damageForce[3], Float:damagePosition[3], damagecustom)
-forward OnHoovyTakeDamage_Post(iVictim,iAttacker,float &damage,int damagetype,Float:damageForce[3], Float:damagePosition[3], damagecustom)
-forward HoovyThink()
+enum
+{
+    HOOVY_CB_IGNORED=0,
+    HOOVY_CB_BLOCKED=-1,
+    HOOVY_CB_CHANGED=1
+}
 typeset HoovyCallback
 {
+    function int(int id);
     function void(int id);
     function int(int Victim,int Attacker,int inflictor,float &damage,int &damagetype,int &weapon);
 }
 native int RegisterHoovyClass(String: classname[],String: classdesc[],float maxhealth,float dmgbonus,float dmgvuln,bool meleeOnly=false,int ClassLimit=0)
 native void RegisterHoovyThinkCallback(int id,HoovyCallback cb)
 native void RegisterHoovyDamageCallback(int id,HoovyCallback cb)
+native void RegisterHoovyPootisCallback(int id,HoovyCallback cb)
 native void RegisterHoovySpawnCallback(int id,HoovyCallback cb)
