@@ -268,6 +268,9 @@ public OnMapStart()
 }
 public Action OnPlayerRunCmd(int client,int &buttons)
 {
+    #if SPELLS_STAGING
+    if(ForceJump[client])buttons|=IN_JUMP
+    #endif
     if(!(buttons&IN_ATTACK2)||!ValidUser(client)||HoovySpecialDelivery[client])return Plugin_Continue
     if(HoovyClass[client]==HOOVY_BOOMER)
     {
@@ -1301,6 +1304,13 @@ stock DestroyClientBuildings(client,const char[]objname)
             AcceptEntityInput(entity, "Kill")
         }
     }
+}
+stock SetAmmo(client,weapon,int amount)
+{
+        if(!IsValidEntity(weapon))return
+        int offs = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType",1)
+        int iAmmo = FindSendPropInfo("CTFPlayer","m_iAmmo")
+        if(iAmmo!=-1&&offs!=-1)SetEntData(client,iAmmo+(offs*4),amount,4)
 }
 stock setActiveSlot(client,slot)
 {

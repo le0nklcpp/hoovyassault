@@ -28,6 +28,7 @@ int SpellMana[MAX_SPELLS]={
 23
 }
 int SpellJumpingCurse[MAXPLAYERS]
+bool ForceJump[MAXPLAYERS]
 int SpellLabels[BOOK_SPELLS][2] // This is for captions that are taken from the array above
 int SpellIds[BOOK_SPELLS][2] // So the actual spells are scrambled for both teams lmao
 #define SPELLFLAG_DEBUFF (1<<1)
@@ -148,6 +149,7 @@ Spells_RoundStart()
     for(int i=1;i<MaxClients;i++)
     {
         SpellJumpingCurse[i] = 0
+        ForceJump[i] = false
     }
 }
 public ShowSpellMenu(int client)
@@ -349,17 +351,28 @@ void SpellSwimming(int client)
 }
 void SpellJumping(int client)
 {
-    SpellJumpingCurse[client] = 300
-    CreateTimer(0.25,JumpTimer,client,TIMER_REPEAT)
+    SpellJumpingCurse[client] = 30
+    CreateTimer(1.0,JumpTimer,client,TIMER_REPEAT)
 }
 public Action JumpTimer(Handle timer,i)
 {
-    if(ValidUser(i)&&SpellJumpingCurse[i])
+    if(ValidUser(i)&&(SpellJumpingCurse[i]>0))
     {
-        FakeClientCommand(i,"+jump;wait 100;-jump")
         SpellJumpingCurse[i]--
+        ForceJump[i] = !ForceJump[i]
+/*        static int onground
+        onground = GetEntPropEnt(i,Prop_Send,"m_hGroundEntity")
+        if(onground!=-1)
+        {
+            SpellJumpingCurse[i]--
+            static float vel[3]
+            GetEntPropVector(i, Prop_Data, "m_vecVelocity", vel)
+            vel[2] += 250.0
+            TeleportEntity(i, NULL_VECTOR, NULL_VECTOR, vel)
+        }*/
         return Plugin_Continue
     }
+    ForceJump[i] = false
     return Plugin_Stop
 }
 public Action ClearPowerPlayTimer(Handle timer, i)
