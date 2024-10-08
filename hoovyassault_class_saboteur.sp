@@ -39,6 +39,9 @@ public Plugin myinfo =
 #define MAX_TRAITOR_ITEMS 22
 char TraitorItemNames[MAX_TRAITOR_ITEMS][50]
 int TraitorItemPrice[MAX_TRAITOR_ITEMS]
+
+bool TraitorAdrenaline[MAXPLAYERS+1]
+
 Function TraitorItemCallbacks[MAX_TRAITOR_ITEMS]
 int TraitorItemsNum = 0
 
@@ -47,11 +50,12 @@ public TraitorMenuHandler(Handle menu,MenuAction action,int client,int item)
     if(action==MenuAction_End)CloseHandle(menu)
     else if(action == MenuAction_Select)
     {
+        int result
         if(!ValidUser(client))return
         char strinfo[2]
         GetMenuItem(menu, item, strinfo, sizeof(strinfo))
         int index = strinfo[0]
-        if(!WithdrawHoovyScores(client,TraitorItemPrice[index]))
+        if(GetHoovyScores(client)<TraitorItemPrice[index])
         {
             PrintToChat(client,"These things don\'t grow on trees.Heavy have to earn it.")
             CancelClientMenu(client)
@@ -60,7 +64,8 @@ public TraitorMenuHandler(Handle menu,MenuAction action,int client,int item)
         }
         Call_StartFunction(INVALID_HANDLE,TraitorItemCallbacks[index])
         Call_PushCell(client)
-        Call_Finish()  
+        Call_Finish(result)
+        if(result)WithdrawHoovyScores(client,TraitorItemPrice[index])
     }
 }
 void ShowTraitorMenu(int id)
@@ -80,20 +85,33 @@ void ShowTraitorMenu(int id)
 }
 int TraitorTakeDamage(int Victim,int Attacker,int inflictor,float &damage,int &damagetype,int &weapon)
 {
+    if(ValidUser(Victim)&&(GetHoovyClass(Victim)==TraitorClass)&&TraitorAdrenaline[Victim]&&(GetRandomInt(0,100)>70)&&(damage<108.0))
+    {
+        return HOOVY_CB_BLOCKED // 30% chance to dodge
+    }
     if(!ValidUser(Attacker)||GetHoovyClass(Attacker)!=TraitorClass||getItemIndex(weapon)!=30667)return HOOVY_CB_IGNORED
     damage *= 2.0
     return HOOVY_CB_IGNORED
 }
-void GiveEBat(int id)
+int GiveEBat(int id)
 {
     TF2_RemoveWeaponSlot(id,TFWeaponSlot_Melee)
     CreateWeapon(id,"tf_weapon_bat",30667)
+    return 1
 }
-void GiveSniperRifle(int id)
+int GiveSniperRifle(int id)
 {
     SetHoovyPrimary(id,true)
     TF2_RemoveWeaponSlot(id,TFWeaponSlot_Primary)
     CreateWeapon(id,"tf_weapon_sniperrifle_classic",1098)
+    return 1
+}
+int GiveAdrenaline(int id)
+{
+    TF2_AddCondition(id,TFCond_SpeedBuffAlly,3.0)
+    TraitorAdrenaline[id] = true
+    CreateTimer(8.0,Timer_ResetAdrenaline,id)
+    return 1
 }
 void TraitorThink(int id)
 {
@@ -104,15 +122,17 @@ void TraitorThink(int id)
         TF2_RemoveWeaponSlot(id,TFWeaponSlot_Primary)
     }
 }
-void DisguisePlayer(int id)
+int DisguisePlayer(int id)
 {
     TF2_SetPlayerClass(id,TFClass_Spy,_,false)
     TF2_DisguisePlayer(id,TF2_GetClientTeam(id)==TFTeam_Red?TFTeam_Blue:TFTeam_Red,TFClass_Heavy)
     TF2_SetPlayerClass(id,TFClass_Heavy,_,false)
+    return 1
 }
 int TraitorSpawn(int id)
 {
     if(TF2_GetPlayerClass(id)!=TFClass_Heavy)return 0
+    TraitorAdrenaline[id] = false
     DisguisePlayer(id)
     PrintToChat(id,"Press X then press 5 to activate your gadgets menu. Note that it uses your team\'s budget")
     return 1
@@ -128,12 +148,20 @@ void RegisterTraitorItem(String:name[],int price,Function callback)
     TraitorItemPrice[TraitorItemsNum] = price
     TraitorItemsNum++
 }
+/*
+public Action OnTouchStart(int entity,int other)
+{
+
+}
+*/
 public OnPluginStart()
 {
     GBW_Staging_OnPluginStart()
     RegisterTraitorItem("Neon stick(definitely not a weapon)",8,GiveEBat)
     RegisterTraitorItem("Classic",22,GiveSniperRifle)
     RegisterTraitorItem("Disguise",2,DisguisePlayer)
+    RegisterTraitorItem("Adrenaline injection",8,GiveAdrenaline)
+    for(int i=1;i<MaxClients;i++)TraitorAdrenaline[i] = false
 }
 public OnAllPluginsLoaded()
 {
@@ -145,6 +173,19 @@ public OnAllPluginsLoaded()
         RegisterHoovyThinkCallback(TraitorClass,TraitorThink)
         RegisterHoovyDamageCallback(TraitorClass,TraitorTakeDamage)
     }
+}
+/*public OnClientPutInServer(id)
+{
+    SDKHook(id,SDKHook_TouchStart,OnTouchStart)
+}
+public OnClientDisconnect(id)
+{
+    SDKUnhook(id,SDKHook_TouchStart,OnTouchStart)
+}*/
+public Action Timer_ResetAdrenaline(Handle:hTimer,id)
+{
+    TraitorAdrenaline[id] = false
+    return Plugin_Handled
 }
 
 stock getItemIndex(item)

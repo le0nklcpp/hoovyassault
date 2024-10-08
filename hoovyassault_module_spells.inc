@@ -27,8 +27,8 @@ int SpellMana[MAX_SPELLS]={
 15,
 23
 }
-int SpellJumpingCurse[MAXPLAYERS]
-bool ForceJump[MAXPLAYERS]
+int SpellJumpingCurse[MAXPLAYERS+1]
+bool ForceJump[MAXPLAYERS+1]
 int SpellLabels[BOOK_SPELLS][2] // This is for captions that are taken from the array above
 int SpellIds[BOOK_SPELLS][2] // So the actual spells are scrambled for both teams lmao
 #define SPELLFLAG_DEBUFF (1<<1)

@@ -25,22 +25,22 @@
 #define SPELLS_STAGING 1 // set to 1 to enable the following features: Spells
 #define HOOVY_CLASSAPI_ENABLED 1 // set to 1 to enable Hoovy Assault Plugin API
 
-int HoovyClass[MAXPLAYERS]
-int HoovyFlags[MAXPLAYERS] // bitsum
-int HoovyRage[MAXPLAYERS]
-bool HoovyVisuals[MAXPLAYERS]
-float HoovyCoords[MAXPLAYERS][3] // position
-float HoovyMaxHealth[MAXPLAYERS]
+int HoovyClass[MAXPLAYERS+1]
+int HoovyFlags[MAXPLAYERS+1] // bitsum
+int HoovyRage[MAXPLAYERS+1]
+bool HoovyVisuals[MAXPLAYERS+1]
+float HoovyCoords[MAXPLAYERS+1][3] // position
+float HoovyMaxHealth[MAXPLAYERS+1]
 int HoovyScores[2] = {0,0} // 0 = RED, 1 = BLU
 
-bool HoovyValid[MAXPLAYERS]
-bool HoovySpecialDelivery[MAXPLAYERS]
-bool MadeHisChoice[MAXPLAYERS]
-bool BannerDeployed[MAXPLAYERS]
+bool HoovyValid[MAXPLAYERS+1]
+bool HoovySpecialDelivery[MAXPLAYERS+1]
+bool MadeHisChoice[MAXPLAYERS+1]
+bool BannerDeployed[MAXPLAYERS+1]
 
 
-bool HoovyPrimaryUnrestricted[MAXPLAYERS]
-bool HoovyClassUnrestricted[MAXPLAYERS]
+bool HoovyPrimaryUnrestricted[MAXPLAYERS+1]
+bool HoovyClassUnrestricted[MAXPLAYERS+1]
 
 int BeamSprite[2],HaloSprite
 
@@ -74,6 +74,7 @@ stock min(a,b)
 #define HOOVY_BIT_DMGRES (1<<2)
 #define HOOVY_BIT_OVERHEAL (1<<3)
 #define HOOVY_BIT_HEALING (1<<4)
+#define HOOVY_BIT_BLOCK_HEALING (1<<5)
 
 #define SOUND_HEAL "items/smallmedkit1.wav"
 #define SOUND_BOOM "items/cart_explode.wav"
@@ -432,7 +433,7 @@ public Action Event_ItemPickup(Handle:hEvent, const String:strEventName[], bool:
     static char itemid[28]
     GetEventString(hEvent,"item",itemid,sizeof itemid)
     if(HoovyClass[user] != HOOVY_SCOUT)return Plugin_Continue
-    if(StrContains(itemid,"medkit",false)!=-1)SetEntityHealth(user,RoundToFloor(300.0*ClassChars[HOOVY_SCOUT][Char_Maxhealth]))
+    if(StrContains(itemid,"medkit",false)!=-1)SetEntityHealth(user,RoundToFloor(getMaxHealth(user)))
     return Plugin_Continue
 }
 public Action Event_PlayerSpawn(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
@@ -708,7 +709,7 @@ public ClassHelpHandler(Handle menuid, MenuAction action, id, menu_item)
 public TryHealing(id)
 {
     HoovyMaxHealth[id] = getMaxHealth(id)
-    if(HoovyFlags[id]&HOOVY_BIT_HEALING||HoovyClass[id]==HOOVY_MEDIC)
+    if(((HoovyFlags[id]&HOOVY_BIT_HEALING)&&!(HoovyFlags[id]&HOOVY_BIT_BLOCK_HEALING))||HoovyClass[id]==HOOVY_MEDIC)
     {
         static int clienthealth,maxhealth
         clienthealth = GetClientHealth(id)

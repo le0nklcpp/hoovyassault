@@ -24,7 +24,7 @@
 #define AAAAAAAAAAAAAA 120.0
 
 int AAAAAAAAAAAA = -1
-bool A_A[MAXPLAYERS]
+bool A_A[MAXPLAYERS+1]
 #define AAAAAAAAA     TF2_AddCondition(A,TFCond_HalloweenBombHead,HOOVY_CYCLE_TIME+0.1);TF2_AddCondition(A,TFCond_SpeedBuffAlly,HOOVY_CYCLE_TIME+0.1);GetClientAbsOrigin(A,AAAAAAA)
 
 #define is_AA(%1) (IsClientInGame(%1)&&IsPlayerAlive(%1))
