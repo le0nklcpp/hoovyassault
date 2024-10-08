@@ -177,6 +177,7 @@ public SpellMenuHandler(Handle menuid, MenuAction action, id, menu_item)
         if(!ValidUser(id))
         {
             PrintToChat(id,"Sorry, but you need to be alive to cast spells")
+            return
         }
         char strinfo[3]
         GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo))
