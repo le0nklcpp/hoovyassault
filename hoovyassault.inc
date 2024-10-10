@@ -10,6 +10,9 @@ native void SetHoovyPrimary(int client,bool allow = true)
 #define HOOVY_EFFECTS_RADIUS 315.0
 #define MENU_TIMEOUT 4
 #define MEDIC_HEAL 15 // HP/tic
+#define MEDIC_FIST_HEAL 35
+#define MEDIC_HEAL_FIST_DELAY 1.5
+#define MEDIC_OVERHEAL 100
 #define MEDIC_TICK 0.2 // seconds
 #define COMISSAR_OVERHEAL 50.0
 #define COMISSAR_DMGRES 0.9
@@ -35,6 +38,7 @@ HOOVY_TRUMPETER,
 HOOVY_BOOMER,
 HOOVY_LEAPER,
 HOOVY_ENGINEER,
+HOOVY_GNOME,
 NUM_CLASSES
 }
 enum

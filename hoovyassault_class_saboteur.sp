@@ -33,7 +33,7 @@ public Plugin myinfo =
  name = "Hoovyassault spy class",
  author = "breins",
  description = "Spy class for Pootis Fortress",
- version = "1.0",
+ version = "1.1",
  url = ""
 };
 #define MAX_TRAITOR_ITEMS 22
@@ -41,6 +41,7 @@ char TraitorItemNames[MAX_TRAITOR_ITEMS][50]
 int TraitorItemPrice[MAX_TRAITOR_ITEMS]
 
 bool TraitorAdrenaline[MAXPLAYERS+1]
+bool TraitorKart[MAXPLAYERS+1]
 
 Function TraitorItemCallbacks[MAX_TRAITOR_ITEMS]
 int TraitorItemsNum = 0
@@ -113,6 +114,11 @@ int GiveAdrenaline(int id)
     CreateTimer(8.0,Timer_ResetAdrenaline,id)
     return 1
 }
+int GiveKart(int id)
+{
+    TraitorKart[id] = true
+    return 1
+}
 void TraitorThink(int id)
 {
     static int item
@@ -121,6 +127,7 @@ void TraitorThink(int id)
     {
         TF2_RemoveWeaponSlot(id,TFWeaponSlot_Primary)
     }
+    if(TraitorKart[id])TF2_AddCondition(id,TFCond_HalloweenKart,HOOVY_CYCLE_TIME+0.1)
 }
 int DisguisePlayer(int id)
 {
@@ -132,6 +139,7 @@ int DisguisePlayer(int id)
 int TraitorSpawn(int id)
 {
     if(TF2_GetPlayerClass(id)!=TFClass_Heavy)return 0
+    TraitorKart[id] = false
     TraitorAdrenaline[id] = false
     DisguisePlayer(id)
     PrintToChat(id,"Press X then press 5 to activate your gadgets menu. Note that it uses your team\'s budget")
@@ -148,12 +156,27 @@ void RegisterTraitorItem(String:name[],int price,Function callback)
     TraitorItemPrice[TraitorItemsNum] = price
     TraitorItemsNum++
 }
-/*
-public Action OnTouchStart(int entity,int other)
-{
 
+public Action OnTouchStart(int client,int other)
+{
+    if(TraitorKart[client]&&(GetHoovyClass(client)==TraitorClass)&&ValidUser(other))
+    {
+        static float angles[3],vel[3],fwd[3],right[3],up[3],cur[3]
+        vel[0]=vel[1]=vel[2]=0.0
+        GetEntPropVector(client, Prop_Data, "m_vecVelocity", cur)
+        GetClientAbsAngles(client,angles)
+        GetAngleVectors(angles,fwd,right,up)
+        AddVectors(vel,fwd,vel)
+        AddVectors(vel,right,vel)
+        AddVectors(vel,up,vel)
+        ScaleVector(vel,250.0)
+        AddVectors(vel,cur,vel)
+        if(vel[2]<0)vel[2]=-vel[2]
+        TeleportEntity(other, NULL_VECTOR, NULL_VECTOR, vel)
+    }
+    return Plugin_Continue
 }
-*/
+
 public OnPluginStart()
 {
     GBW_Staging_OnPluginStart()
@@ -161,7 +184,8 @@ public OnPluginStart()
     RegisterTraitorItem("Classic",22,GiveSniperRifle)
     RegisterTraitorItem("Disguise",2,DisguisePlayer)
     RegisterTraitorItem("Adrenaline injection",8,GiveAdrenaline)
-    for(int i=1;i<MaxClients;i++)TraitorAdrenaline[i] = false
+    RegisterTraitorItem("Car!",30,GiveKart)
+    for(int i=1;i<MaxClients;i++)TraitorAdrenaline[i] = TraitorKart[i] = false
 }
 public OnAllPluginsLoaded()
 {
@@ -174,14 +198,15 @@ public OnAllPluginsLoaded()
         RegisterHoovyDamageCallback(TraitorClass,TraitorTakeDamage)
     }
 }
-/*public OnClientPutInServer(id)
+public OnClientPutInServer(id)
 {
-    SDKHook(id,SDKHook_TouchStart,OnTouchStart)
+    TraitorKart[id] = false
+    SDKHook(id,SDKHook_StartTouch,OnTouchStart)
 }
 public OnClientDisconnect(id)
 {
-    SDKUnhook(id,SDKHook_TouchStart,OnTouchStart)
-}*/
+    SDKUnhook(id,SDKHook_StartTouch,OnTouchStart)
+}
 public Action Timer_ResetAdrenaline(Handle:hTimer,id)
 {
     TraitorAdrenaline[id] = false
