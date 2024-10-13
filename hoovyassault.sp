@@ -148,13 +148,13 @@ char ClassDescription[NUM_CLASSES][]={
 "Health bonus +75 HP",
 "Healing allies,BUT may use only melee",
 "+50 max HP,+10% dmg res for allies, BUT -50% HP,-30% dmg res,-15% dmg penalty for you",
-" +10% dmg bonus for allies,+15% for you, BUT -15% HP,-15% dmg res for you",
-"increased speed, BUT -40% HP,-40% dmg penalty",
+" +10% dmg bonus for allies,+20% for you, BUT -25% HP,-15% dmg res for you",
+"increased speed, BUT -40% HP,-15% dmg penalty",
 "kills with one punch, dies from one punch",
 "Activate Buff Banner by using POOTIS (press x then press 5), BUT always marked for death,-30% health",
 "Now your most terrifying weapon is your sandwich",
-"Jump really high using RMB, -30% dmg resistance, -15% dmg penalty",
-"Put dispenser here by saying \"Put dispenser here\"(press x then press 5), -85% health,damage penalty based on health",
+"Jump really high using RMB, -30% dmg resistance, -40% dmg penalty",
+"Put dispenser here by saying \"Put dispenser here\"(press x then press 5), -50% health,damage penalty based on health",
 "Cast gruesome spells on your foes and allies"
 }
 char ClassName[NUM_CLASSES][]=
@@ -198,7 +198,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "20.08.24.1",
+ version = "10.10.24.1",
  url = ""
 };
 public OnPluginStart()
