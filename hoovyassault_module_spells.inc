@@ -332,7 +332,7 @@ stock TryCastingSpell(client,spell)
     if((CurrentSpellFlags&SPELLFLAG_MAY_ON_YOURSELF)&&(GetRandomInt(0,100)>50))CurrentSpellFlags |= SPELLFLAG_ON_YOURSELF
     if((CurrentSpellFlags&SPELLFLAG_MAY_ON_EVERYONE)&&(GetRandomInt(0,100)>50))CurrentSpellFlags |= (SPELLFLAG_ON_ALLY|SPELLFLAG_ON_FOE|SPELLFLAG_ON_YOURSELF)
     if(CurrentSpellFlags&SPELLFLAG_IN_BEAM)CastDirectSpell(client)
-    EmitSoundToAll(SpellCastingSounds[GetRandomInt(0,SPELL_CAST_SOUNDS_NUM)],client)
+    EmitSoundToAll(SpellCastingSounds[GetRandomInt(0,SPELL_CAST_SOUNDS_NUM-1)],client)
     CastSpell()
     LogMessage("Casted spell:%i, on yourself: %i,on allies:%i, on foes:%i",CurrentSpell,CurrentSpellFlags&SPELLFLAG_ON_YOURSELF,CurrentSpellFlags&SPELLFLAG_ON_ALLY,CurrentSpellFlags&SPELLFLAG_ON_FOE)
     return true
@@ -369,9 +369,9 @@ void ReactToSpell(int client)
             #if SPELL_VO_SHARED
               if(GetRandomInt(0,100)<59){
             #endif
-            EmitSoundToAll(SpellCommentBad[GetRandomInt(0,SPELL_VO_BAD_NUM)],client,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL)
+            EmitSoundToAll(SpellCommentBad[GetRandomInt(0,SPELL_VO_BAD_NUM-1)],client,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL)
             #if SPELL_VO_SHARED
-              } else EmitSoundToAll(SpellCommentBad_Wizard[GetRandomInt(0,SPELL_VO_BAD_WIZARD_NUM)],client,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL)
+              } else EmitSoundToAll(SpellCommentBad_Wizard[GetRandomInt(0,SPELL_VO_BAD_WIZARD_NUM-1)],client,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL)
             #endif
         }
     }
@@ -382,12 +382,12 @@ void ReactToSpell(int client)
             #if SPELL_VO_SHARED
               if(GetRandomInt(0,100)<59){
             #endif
-            EmitSoundToAll(SpellCommentGood[GetRandomInt(0,SPELL_VO_GOOD_NUM)],client,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL)
+            EmitSoundToAll(SpellCommentGood[GetRandomInt(0,SPELL_VO_GOOD_NUM-1)],client,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL)
             #if SPELL_VO_SHARED
-              } else EmitSoundToAll(SpellCommentGood_Wizard[GetRandomInt(0,SPELL_VO_GOOD_WIZARD_NUM)],client,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL)
+              } else EmitSoundToAll(SpellCommentGood_Wizard[GetRandomInt(0,SPELL_VO_GOOD_WIZARD_NUM-1)],client,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL)
             #endif
         }
-        else EmitSoundToAll(SpellCommentGood[GetRandomInt(0,SPELL_VO_GOOD_NUM)],client,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL)
+        else EmitSoundToAll(SpellCommentGood[GetRandomInt(0,SPELL_VO_GOOD_NUM-1)],client,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL)
     }
 }
 void SpellHeal(int client)
