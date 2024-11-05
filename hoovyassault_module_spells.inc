@@ -364,7 +364,7 @@ void ReactToSpell(int client)
     if(GetRandomInt(0,100)<61)return
     if(CurrentSpellFlags&(SPELLFLAG_DEBUFF|SPELLFLAG_HARM|SPELLFLAG_FUN)) // Bad spell
     {
-        if(client==CurrentHoovyWizard)EmitSoundToAll(SpellCommentBad_Wizard[GetRandomInt(0,SPELL_VO_BAD_WIZARD_NUM)],client,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL)
+        if(client==CurrentHoovyWizard)EmitSoundToAll(SpellCommentBad_Wizard[GetRandomInt(0,SPELL_VO_BAD_WIZARD_NUM-1)],client,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL)
         else {
             #if SPELL_VO_SHARED
               if(GetRandomInt(0,100)<59){
