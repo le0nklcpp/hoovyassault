@@ -33,7 +33,7 @@ public Plugin myinfo =
  name = "Hoovyassault spy class",
  author = "breins",
  description = "Spy class for Pootis Fortress",
- version = "1.1",
+ version = "1.2",
  url = ""
 };
 #define MAX_TRAITOR_ITEMS 22
@@ -90,8 +90,15 @@ int TraitorTakeDamage(int Victim,int Attacker,int inflictor,float &damage,int &d
     {
         return HOOVY_CB_BLOCKED // 30% chance to dodge
     }
-    if(!ValidUser(Attacker)||GetHoovyClass(Attacker)!=TraitorClass||getItemIndex(weapon)!=30667)return HOOVY_CB_IGNORED
-    damage *= 2.0
+    if(!ValidUser(Attacker)||GetHoovyClass(Attacker)!=TraitorClass)return HOOVY_CB_IGNORED
+    switch(getItemIndex(weapon)){
+    case(30667):damage *= 2.0;
+    case(19):{
+        damage = 0.0
+        if(Victim==Attacker||TF2_GetClientTeam(Victim)!=TF2_GetClientTeam(Attacker))
+            TF2_StunPlayer(Victim,7.0,0.5,TF_STUNFLAGS_SMALLBONK)
+        }
+    }
     return HOOVY_CB_IGNORED
 }
 int GiveEBat(int id)
@@ -105,6 +112,15 @@ int GiveSniperRifle(int id)
     SetHoovyPrimary(id,true)
     TF2_RemoveWeaponSlot(id,TFWeaponSlot_Primary)
     CreateWeapon(id,"tf_weapon_sniperrifle_classic",1098)
+    SetAmmo(id,GetPlayerWeaponSlot(id,TFWeaponSlot_Primary),32)
+    return 1
+}
+int GiveGL(int id)
+{
+    SetHoovyPrimary(id,true)
+    TF2_RemoveWeaponSlot(id,TFWeaponSlot_Primary)
+    CreateWeapon(id,"tf_weapon_grenadelauncher",19)
+    SetAmmo(id,GetPlayerWeaponSlot(id,TFWeaponSlot_Primary),16)
     return 1
 }
 int GiveAdrenaline(int id)
@@ -121,12 +137,14 @@ int GiveKart(int id)
 }
 void TraitorThink(int id)
 {
-    static int item
-    item = getItemIndex(GetPlayerWeaponSlot(id,TFWeaponSlot_Primary))
-    if(item!=-1&&item!=1098)
+    static int item,weapon
+    weapon = GetPlayerWeaponSlot(id,TFWeaponSlot_Primary)
+    item = getItemIndex(weapon)
+    if(item!=-1&&item!=1098&&item!=19)
     {
         TF2_RemoveWeaponSlot(id,TFWeaponSlot_Primary)
     }
+    //else if(item==19)SetAmmo(id,weapon,0)
     if(TraitorKart[id])TF2_AddCondition(id,TFCond_HalloweenKart,HOOVY_CYCLE_TIME+0.1)
 }
 int DisguisePlayer(int id)
@@ -184,6 +202,7 @@ public OnPluginStart()
     RegisterTraitorItem("Classic",22,GiveSniperRifle)
     RegisterTraitorItem("Disguise",2,DisguisePlayer)
     RegisterTraitorItem("Adrenaline injection",8,GiveAdrenaline)
+    RegisterTraitorItem("Grenade launcher(stun-grenades)",26,GiveGL)
     RegisterTraitorItem("Car!",30,GiveKart)
     for(int i=1;i<MaxClients;i++)TraitorAdrenaline[i] = TraitorKart[i] = false
 }
