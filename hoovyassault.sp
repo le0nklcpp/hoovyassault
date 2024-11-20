@@ -198,7 +198,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "11.05.24",
+ version = "24.11.20",
  url = ""
 };
 public OnPluginStart()
@@ -1305,13 +1305,6 @@ stock DestroyClientBuildings(client,const char[]objname)
             AcceptEntityInput(entity, "Kill")
         }
     }
-}
-stock SetAmmo(client,weapon,int amount)
-{
-        if(!IsValidEntity(weapon))return
-        int offs = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType",1)
-        int iAmmo = FindSendPropInfo("CTFPlayer","m_iAmmo")
-        if(iAmmo!=-1&&offs!=-1)SetEntData(client,iAmmo+(offs*4),amount,4)
 }
 stock setActiveSlot(client,slot)
 {

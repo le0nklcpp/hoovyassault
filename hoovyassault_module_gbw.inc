@@ -49,9 +49,20 @@ stock CreateWeapon(int client, char[] classname, int itemindex, int level = 0)
         {
             SetEntData(weapon, FindSendPropInfo(entclass, "m_nChargeResistType"), GetRandomUInt(0,2));
         }
+        case 19,1151:
+        {
+            SetEntProp(weapon, Prop_Data, "m_iClip1", 4);
+        }
     }
 
     DispatchSpawn(weapon)
     SDKCall(g_hWeaponEquip, client, weapon)
     return true;
+}
+stock SetAmmo(client,weapon,int amount)
+{
+        if(!IsValidEntity(weapon))return
+        int offs = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType",1)
+        int iAmmo = FindSendPropInfo("CTFPlayer","m_iAmmo")
+        if(iAmmo!=-1&&offs!=-1)SetEntData(client,iAmmo+(offs*4),amount,4)
 }

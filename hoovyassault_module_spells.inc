@@ -133,6 +133,7 @@ SPELL_INCARNATION,
 SPELL_SWIMMING,
 SPELL_JUMPING,
 SPELL_SPEEDUP,
+SPELL_INSTANTDEATH,
 NUM_SPELLS
 }
 int SpellFlags[]=
@@ -153,7 +154,8 @@ int SpellFlags[]=
 (SPELLFLAG_BUFF|SPELLFLAG_ON_ALLY|SPELLFLAG_IN_BEAM),
 (SPELLFLAG_FUN|SPELLFLAG_MAY_ON_ALLY|SPELLFLAG_MAY_ON_FOE|SPELLFLAG_ON_YOURSELF|SPELLFLAG_IN_EVERYWHERE),
 (SPELLFLAG_FUN|SPELLFLAG_MAY_ON_EVERYONE|SPELLFLAG_MAY_ON_ALLY|SPELLFLAG_MAY_ON_FOE|SPELLFLAG_IN_EVERYWHERE),
-(SPELLFLAG_BUFF|SPELLFLAG_ON_ALLY|SPELLFLAG_IN_RANGE)
+(SPELLFLAG_BUFF|SPELLFLAG_ON_ALLY|SPELLFLAG_IN_RANGE),
+(SPELLFLAG_HARM|SPELLFLAG_ON_FOE|SPELLFLAG_IN_RANGE|SPELLFLAG_MAY_ON_YOURSELF)
 }
 int CurrentHoovyWizard
 int CurrentSpellFlags
@@ -163,7 +165,7 @@ typeset SpellCallback
 {
     function void (int client)
 }
-SpellCallback SpellList[17]
+SpellCallback SpellList[18]
 #define getSpellCb  SpellCallback cb = SpellList[CurrentSpell]
 #define IsAllowedToCast(%1) (((CurrentSpellFlags&SPELLFLAG_ON_YOURSELF)&&(CurrentHoovyWizard==%1))||((CurrentSpellFlags&SPELLFLAG_ON_ALLY)&&TF2_GetClientTeam(%1)==CurrentWizardTeam)||((CurrentSpellFlags&SPELLFLAG_ON_FOE)&&TF2_GetClientTeam(%1)!=CurrentWizardTeam))
 bool HoovySpellTraceFilter(int entity)
@@ -199,6 +201,7 @@ public Spells_OnPluginStart()
     cb(SPELL_SWIMMING,SpellSwimming)
     cb(SPELL_JUMPING,SpellJumping)
     cb(SPELL_SPEEDUP,SpellSpeedup)
+    cb(SPELL_INSTANTDEATH,SpellInstantDeath)
     #undef cb
     for(int i=0;i<SPELL_VO_GOOD_WIZARD_NUM;i++)PrecacheSound(SpellCommentGood_Wizard[i])
     for(int i=0;i<SPELL_VO_GOOD_NUM;i++)PrecacheSound(SpellCommentGood[i])
@@ -339,11 +342,13 @@ stock TryCastingSpell(client,spell)
 }
 stock CastDirectSpell(client)
 {
-    float flPos[3]
+    /*float flPos[3]
     float flAng[3]
     GetClientEyePosition(client, flPos)
     GetClientEyeAngles(client, flAng)
-    TR_EnumerateEntities(flPos,flAng,MASK_SOLID,RayType_Infinite,HoovySpellTraceFilter)
+    TR_EnumerateEntities(flPos,flAng,MASK_SOLID,RayType_Infinite,HoovySpellTraceFilter)*/
+    int target = GetClientAimTarget(client,true)
+    HoovySpellTraceFilter(target)
 }
 stock CastSpell()
 {
@@ -459,6 +464,10 @@ void SpellJumping(int client)
 {
     SpellJumpingCurse[client] = 30
     CreateTimer(1.0,JumpTimer,client,TIMER_REPEAT)
+}
+void SpellInstantDeath(int client)
+{
+    SetEntityHealth(client,1)
 }
 public Action JumpTimer(Handle timer,i)
 {
