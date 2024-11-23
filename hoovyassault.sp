@@ -531,6 +531,7 @@ public removeSDKHooks(client)
 {
     SDKUnhook(client, SDKHook_OnTakeDamage, OnTakeDamage)
     SDKUnhook(client, SDKHook_GetMaxHealth,OnGetMaxHealth)
+    SDKUnhook(client, SDKHook_TraceAttack, OnTraceAttack)
     if(IsFakeClient(client))SDKUnhook(client, SDKHook_WeaponSwitch, OnWeaponSwitch)
 }
 public doSDKHooks(client)
