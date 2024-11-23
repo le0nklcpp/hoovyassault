@@ -174,6 +174,7 @@ char ClassName[NUM_CLASSES][]=
 
 
 ConVar meleeOnlyAllowed
+ConVar hideCustomWeapons
 
 #define BOOMER_VO_NUM 8
 char boomer_sounds[BOOMER_VO_NUM][] = {
@@ -220,6 +221,7 @@ public OnPluginStart()
     AddCommandListener(SayCommand, "say")
     AddCommandListener(SayCommand, "say_team")
     meleeOnlyAllowed = CreateConVar("hassault_melee_only","0","Enable/disable melee mode")
+    hideCustomWeapons = CreateConVar("hassault_hide_custom_viewmodels","0","Hide viewmodels for non-heavy weapons")
     HoovyScores[0] = HoovyScores[1] = 0
     #if GBW_STAGING
     GBW_Staging_OnPluginStart()
@@ -405,6 +407,18 @@ public Action OnWeaponSwitch(int client, int weapon)
     }
     return Plugin_Continue
 }
+public void OnWeaponCanSwitchToPost(int client, int weapon)
+{
+    if(!hideCustomWeapons.BoolValue)return
+    static int index
+    index = getItemIndex(weapon)
+    if(index==-1)return
+    switch(index)
+    {
+        case 11,199,42,159,311,425,433,863,1002,1141,1153,1190,15003,15016,15044,15047,15085,15109,15132,15133,15152:SetEntProp(client,Prop_Send,"m_bDrawViewmodel",1);
+        default: SetEntProp(client,Prop_Send,"m_bDrawViewmodel",0);
+    }
+}
 public Action Event_PlayerDeath(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
     int iVictim = GetClientOfUserId(GetEventInt(hEvent, "userid"))
@@ -533,6 +547,7 @@ public removeSDKHooks(client)
     SDKUnhook(client, SDKHook_GetMaxHealth,OnGetMaxHealth)
     SDKUnhook(client, SDKHook_TraceAttack, OnTraceAttack)
     if(IsFakeClient(client))SDKUnhook(client, SDKHook_WeaponSwitch, OnWeaponSwitch)
+    else SDKUnhook(client, SDKHook_WeaponCanSwitchToPost, OnWeaponCanSwitchToPost)
 }
 public doSDKHooks(client)
 {
@@ -540,6 +555,7 @@ public doSDKHooks(client)
     SDKHook(client, SDKHook_GetMaxHealth,OnGetMaxHealth)
     SDKHook(client, SDKHook_TraceAttack, OnTraceAttack)
     if(IsFakeClient(client))SDKHook(client, SDKHook_WeaponSwitch, OnWeaponSwitch)
+    else SDKHook(client, SDKHook_WeaponCanSwitchToPost, OnWeaponCanSwitchToPost)
 }
 public ShowMainMenu(id)
 {
