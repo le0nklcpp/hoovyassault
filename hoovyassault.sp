@@ -199,7 +199,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "24.11.20",
+ version = "24.11.24",
  url = ""
 };
 public OnPluginStart()
