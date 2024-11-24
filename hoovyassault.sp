@@ -415,7 +415,7 @@ public void OnWeaponCanSwitchToPost(int client, int weapon)
     if(index==-1)return
     switch(index)
     {
-        case 11,199,42,159,311,425,433,863,1002,1141,1153,1190,15003,15016,15044,15047,15085,15109,15132,15133,15152:SetEntProp(client,Prop_Send,"m_bDrawViewmodel",1);
+        case 11,199,42,159,311,425,433,863,1002,1141,1153,1190,15003,15016,15044,15047,15085,15109,15132,15133,15152,5,195,43,239,264,310,331,423,426,474,587,656,880,939,954,1013,1071,1084,1100,1123,1127,1184,30758:SetEntProp(client,Prop_Send,"m_bDrawViewmodel",1);
         default: SetEntProp(client,Prop_Send,"m_bDrawViewmodel",0);
     }
 }
