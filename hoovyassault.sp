@@ -70,6 +70,8 @@ stock min(a,b)
 #define TRUMPETER_BUFFTIME 10
 #define TRUMPETER_DAMAGENEEDED 600
 
+#define ENGINEER_BUILDING_HEAL 25
+
 #define HOOVY_BIT_DMGBONUS (1<<1)
 #define HOOVY_BIT_DMGRES (1<<2)
 #define HOOVY_BIT_OVERHEAL (1<<3)
@@ -199,7 +201,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "24.11.24",
+ version = "25.01.01",
  url = ""
 };
 public OnPluginStart()
@@ -369,11 +371,25 @@ public Action OnTraceAttack(int victim, int &attacker, int &inflictor, float &da
     EmitSoundToAll(SOUND_HEAL,victim)
     return Plugin_Handled
 }
+
+// Healing buildings
+public Action Building_OnTraceAttack(int victim, int &attacker, int &inflictor, float &damage, int &damagetype, int &ammotype, int hitbox, int hitgroup)
+{
+    if(!ValidUser(attacker)||HoovyClass[attacker]!=HOOVY_ENGINEER||!(damagetype&DMG_CLUB))return Plugin_Continue
+    static int team,health,maxhealth
+    team = GetEntProp(victim,Prop_Send,"m_iTeamNum")
+    if(GetClientTeam(attacker)!=team||!AttemptToBuy(attacker,1))return Plugin_Continue
+    health = GetEntProp(victim,Prop_Send,"m_iHealth")
+    maxhealth = GetEntProp(victim,Prop_Send,"m_iMaxHealth")
+    SetEntProp(victim,Prop_Send,"m_iHealth",min(health + ENGINEER_BUILDING_HEAL,maxhealth))
+    if(HasEntProp(victim,Prop_Send,"m_iAmmoShells"))SetEntProp(victim,Prop_Send,"m_iAmmoShells",150) // if it's a sentry, give it full ammo
+    return Plugin_Continue
+}
 public Action OnGetMaxHealth(int client, int &maxHealth)
 {
     maxHealth = RoundToFloor(HoovyMaxHealth[client])
     int sandwich = GetPlayerWeaponSlot(client,TFWeaponSlot_Secondary)
-    if(sandwich!=-1&&IsFood(sandwich)&&getItemIndex(sandwich)==159&&HasEntProp(sandwich,Prop_Send,"m_iPrimaryAmmoType"))
+    if(sandwich!=-1&&IsFood(sandwich)&&getItemIndex(sandwich)==159&&HasEntProp(sandwich,Prop_Send,"m_iPrimaryAmmoType")) // dalokohs workaround
     {
         int offs = GetEntProp(sandwich, Prop_Send, "m_iPrimaryAmmoType",1)
         int iAmmo = FindSendPropInfo("CTFPlayer","m_iAmmo")
@@ -1223,6 +1239,7 @@ stock TryBuilding(client,bool dispenser)
             if(iBuilding > MaxClients && IsValidEntity(iBuilding))
             {
 		AttachParticle(iBuilding, "ping_circle", _, 2.0, 2.0)
+                SDKHook(iBuilding,SDKHook_TraceAttack,Building_OnTraceAttack) // it will be removed on entity death automatically
             }
         }
         else PrintToChat(client,"Can't build %s here",dispenser?"dispenser":"sentry")
