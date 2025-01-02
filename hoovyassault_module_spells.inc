@@ -57,7 +57,6 @@ char SpellCastingSounds[SPELL_CAST_SOUNDS_NUM][] = {
 "misc/halloween/merasmus_stun.wav"
 }
 
-#define SND_GOOFY_SPELL ""
 
 // Note that non-wizard heavies can also use BAD Wizard's voice lines, and a Wizard can use GOOD non-Wizard's voice lines
 #define SPELL_VO_SHARED 1 // To disable it set this value to 0
@@ -134,6 +133,8 @@ SPELL_SWIMMING,
 SPELL_JUMPING,
 SPELL_SPEEDUP,
 SPELL_INSTANTDEATH,
+SPELL_REPLACE,
+SPELL_SCRAMBLE,
 NUM_SPELLS
 }
 int SpellFlags[]=
@@ -155,7 +156,9 @@ int SpellFlags[]=
 (SPELLFLAG_FUN|SPELLFLAG_MAY_ON_ALLY|SPELLFLAG_MAY_ON_FOE|SPELLFLAG_ON_YOURSELF|SPELLFLAG_IN_EVERYWHERE),
 (SPELLFLAG_FUN|SPELLFLAG_MAY_ON_EVERYONE|SPELLFLAG_MAY_ON_ALLY|SPELLFLAG_MAY_ON_FOE|SPELLFLAG_IN_EVERYWHERE),
 (SPELLFLAG_BUFF|SPELLFLAG_ON_ALLY|SPELLFLAG_IN_RANGE),
-(SPELLFLAG_HARM|SPELLFLAG_ON_FOE|SPELLFLAG_IN_RANGE|SPELLFLAG_MAY_ON_YOURSELF)
+(SPELLFLAG_HARM|SPELLFLAG_ON_FOE|SPELLFLAG_IN_RANGE|SPELLFLAG_MAY_ON_YOURSELF),
+(SPELLFLAG_BUFF|SPELLFLAG_ON_YOURSELF),
+(SPELLFLAG_FUN|SPELLFLAG_ON_YOURSELF) // Casting this on yourself will cause everyone to switch places
 }
 int CurrentHoovyWizard
 int CurrentSpellFlags
@@ -165,7 +168,7 @@ typeset SpellCallback
 {
     function void (int client)
 }
-SpellCallback SpellList[18]
+SpellCallback SpellList[20]
 #define getSpellCb  SpellCallback cb = SpellList[CurrentSpell]
 #define IsAllowedToCast(%1) (((CurrentSpellFlags&SPELLFLAG_ON_YOURSELF)&&(CurrentHoovyWizard==%1))||((CurrentSpellFlags&SPELLFLAG_ON_ALLY)&&TF2_GetClientTeam(%1)==CurrentWizardTeam)||((CurrentSpellFlags&SPELLFLAG_ON_FOE)&&TF2_GetClientTeam(%1)!=CurrentWizardTeam))
 bool HoovySpellTraceFilter(int entity)
@@ -202,12 +205,37 @@ public Spells_OnPluginStart()
     cb(SPELL_JUMPING,SpellJumping)
     cb(SPELL_SPEEDUP,SpellSpeedup)
     cb(SPELL_INSTANTDEATH,SpellInstantDeath)
+    cb(SPELL_REPLACE,SpellReplace)
+    cb(SPELL_SCRAMBLE,SpellScramble)
     #undef cb
     for(int i=0;i<SPELL_VO_GOOD_WIZARD_NUM;i++)PrecacheSound(SpellCommentGood_Wizard[i])
     for(int i=0;i<SPELL_VO_GOOD_NUM;i++)PrecacheSound(SpellCommentGood[i])
     for(int i=0;i<SPELL_VO_BAD_NUM;i++)PrecacheSound(SpellCommentBad[i])
     for(int i=0;i<SPELL_VO_BAD_WIZARD_NUM;i++)PrecacheSound(SpellCommentBad_Wizard[i])
     for(int i=0;i<SPELL_CAST_SOUNDS_NUM;i++)PrecacheSound(SpellCastingSounds[i])
+    RegAdminCmd("hassault_test_spell",TestSpellCommand,ADMFLAG_RCON)
+}
+public Action TestSpellCommand(client, args)
+{
+    if(!ValidUser(client))return Plugin_Handled
+    if(args<1)
+    {
+        PrintToConsole(client,"You must specify spell to cast")
+        return Plugin_Handled
+    }
+    int spellid = GetCmdArgInt(1)
+    if(spellid>=NUM_SPELLS)
+    {
+        PrintToConsole(client,"There\'s no spell like this in your spellbook")
+        return Plugin_Handled
+    }
+    CurrentWizardTeam = TF2_GetClientTeam(client)
+    int team = CurrentWizardTeam==TFTeam_Blue?1:0
+    int buf = SpellIds[0][team]
+    SpellIds[0][team] = spellid
+    TryCastingSpell(client,0)
+    SpellIds[0][team] = buf
+    return Plugin_Handled
 }
 float SpellMapBoundsMin[3],SpellMapBoundsMax[3]
 public Spells_OnMapStart()
@@ -468,6 +496,52 @@ void SpellJumping(int client)
 void SpellInstantDeath(int client)
 {
     SetEntityHealth(client,1)
+}
+void SpellReplace(int client)
+{
+    ArrayList clist = CreateArray()
+    for(int i=1;i<MaxClients;i++)
+    {
+        if(!ValidUser(i)||i==client||GetClientTeam(i)==GetClientTeam(client))continue;
+        clist.Push(i)
+    }
+    if(clist.Length>0)
+    {
+        int index = clist.Get(GetRandomInt(0,clist.Length-1))
+        FakeClientCommandEx(client,"dropitem")
+        FakeClientCommandEx(index,"dropitem")
+        TeleportEntity(client,HoovyCoords[index],NULL_VECTOR,NULL_VECTOR)
+        TeleportEntity(index,HoovyCoords[client],NULL_VECTOR,NULL_VECTOR)
+    }
+    clist.Clear()
+    delete clist
+}
+void SpellScramble(int client)
+{
+    ArrayList clist = CreateArray()
+    for(int i=1;i<MaxClients;i++)
+    {
+        if(!ValidUser(i))continue;
+        clist.Push(i)
+    }
+    if(clist.Length>0)
+    {
+        while(clist.Length >= 2)
+        {
+            int index = GetRandomInt(0,clist.Length-1)
+            int cl1 = clist.Get(index)
+            RemoveFromArray(clist,index)
+            index = GetRandomInt(0,clist.Length-1)
+            int cl2 = clist.Get(index)
+            RemoveFromArray(clist,index)
+            FakeClientCommandEx(cl1,"dropitem")
+            FakeClientCommandEx(cl2,"dropitem")
+            TeleportEntity(cl2,HoovyCoords[cl1],NULL_VECTOR,NULL_VECTOR)
+            TeleportEntity(cl1,HoovyCoords[cl2],NULL_VECTOR,NULL_VECTOR)
+        }
+    }
+    clist.Clear()
+    delete clist
 }
 public Action JumpTimer(Handle timer,i)
 {
