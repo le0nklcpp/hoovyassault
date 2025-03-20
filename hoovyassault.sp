@@ -201,7 +201,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "25.01.01",
+ version = "25.03.20",
  url = ""
 };
 public OnPluginStart()
@@ -824,8 +824,10 @@ public RemoveUnwantedWeapons(i)
        allowsecondary = CanHaveSecondary(i)
        if(!HoovyPrimaryUnrestricted[i]&&getActiveSlot(i)==TFWeaponSlot_Primary)
        {
-           setActiveSlot(i,(!allowsecondary)?TFWeaponSlot_Melee:TFWeaponSlot_Secondary)
+           int activeslot = (!allowsecondary)?TFWeaponSlot_Melee:TFWeaponSlot_Secondary
+           setActiveSlot(i,activeslot)
            TF2_RemoveWeaponSlot(i,TFWeaponSlot_Primary) // Anti-repick protection
+           OnWeaponCanSwitchToPost(i,GetPlayerWeaponSlot(i,activeslot)) // Fix hiding weapon after spawn
        }
        weapon = GetPlayerWeaponSlot(i, TFWeaponSlot_Secondary)
        if(!allowsecondary)
