@@ -45,6 +45,7 @@ int SpellIds[BOOK_SPELLS][2] // So the actual spells are scrambled for both team
 #define SPELLFLAG_IN_BEAM (1<<12)
 #define SPELLFLAG_IN_EVERYWHERE (1<<13)
 #define SPELLFLAG_MAY_ON_EVERYONE (1<<14)
+#define SPELLFLAG_PICK_ALLY (1<<15)
 
 #define SPELL_CAST_SOUNDS_NUM 6
 
@@ -135,6 +136,9 @@ SPELL_SPEEDUP,
 SPELL_INSTANTDEATH,
 SPELL_REPLACE,
 SPELL_SCRAMBLE,
+SPELL_STRIP_WEAPONS,
+SPELL_LARGE_HEALTH,
+SPELL_TITANIZE,
 NUM_SPELLS
 }
 int SpellFlags[]=
@@ -158,7 +162,10 @@ int SpellFlags[]=
 (SPELLFLAG_BUFF|SPELLFLAG_ON_ALLY|SPELLFLAG_IN_RANGE),
 (SPELLFLAG_HARM|SPELLFLAG_ON_FOE|SPELLFLAG_IN_RANGE|SPELLFLAG_MAY_ON_YOURSELF),
 (SPELLFLAG_BUFF|SPELLFLAG_ON_YOURSELF),
-(SPELLFLAG_FUN|SPELLFLAG_ON_YOURSELF) // Casting this on yourself will cause everyone to switch places
+(SPELLFLAG_FUN|SPELLFLAG_ON_YOURSELF), // Casting this on yourself will cause everyone to switch places
+(SPELLFLAG_FUN|SPELLFLAG_ON_ALLY|SPELLFLAG_ON_FOE|SPELLFLAG_ON_YOURSELF|SPELLFLAG_IN_EVERYWHERE),
+(SPELLFLAG_BUFF|SPELLFLAG_ON_ALLY|SPELLFLAG_ON_FOE|SPELLFLAG_IN_EVERYWHERE),
+(SPELLFLAG_BUFF|SPELLFLAG_PICK_ALLY|SPELLFLAG_IN_EVERYWHERE)
 }
 int CurrentHoovyWizard
 int CurrentSpellFlags
@@ -168,7 +175,7 @@ typeset SpellCallback
 {
     function void (int client)
 }
-SpellCallback SpellList[20]
+SpellCallback SpellList[23]
 #define getSpellCb  SpellCallback cb = SpellList[CurrentSpell]
 #define IsAllowedToCast(%1) (((CurrentSpellFlags&SPELLFLAG_ON_YOURSELF)&&(CurrentHoovyWizard==%1))||((CurrentSpellFlags&SPELLFLAG_ON_ALLY)&&TF2_GetClientTeam(%1)==CurrentWizardTeam)||((CurrentSpellFlags&SPELLFLAG_ON_FOE)&&TF2_GetClientTeam(%1)!=CurrentWizardTeam))
 bool HoovySpellTraceFilter(int entity)
@@ -207,6 +214,9 @@ public Spells_OnPluginStart()
     cb(SPELL_INSTANTDEATH,SpellInstantDeath)
     cb(SPELL_REPLACE,SpellReplace)
     cb(SPELL_SCRAMBLE,SpellScramble)
+    cb(SPELL_STRIP_WEAPONS,SpellStripWeapons)
+    cb(SPELL_LARGE_HEALTH,SpellLargeHealth)
+    cb(SPELL_TITANIZE,SpellTitanize)
     #undef cb
     for(int i=0;i<SPELL_VO_GOOD_WIZARD_NUM;i++)PrecacheSound(SpellCommentGood_Wizard[i])
     for(int i=0;i<SPELL_VO_GOOD_NUM;i++)PrecacheSound(SpellCommentGood[i])
@@ -381,6 +391,23 @@ stock CastDirectSpell(client)
 stock CastSpell()
 {
     getSpellCb
+    if(CurrentSpellFlags&SPELLFLAG_PICK_ALLY)
+    {
+        ArrayList clist = CreateArray()
+        for(int i=1;i<MaxClients;i++)
+        {
+            if((!ValidUser(i))||(TF2_GetClientTeam(i)!=CurrentWizardTeam)||i==CurrentHoovyWizard)continue;
+            clist.Push(i)
+        }
+        if(clist.Length<1)return
+        int client = clist.Get(GetRandomInt(0,clist.Length-1))
+        ReactToSpell(client)
+        Call_StartFunction(INVALID_HANDLE,cb)
+        Call_PushCell(client)
+        Call_Finish()
+        clist.Clear()
+        delete clist
+    }
     for(int i=1;i<MaxClients;i++)
     {
         if(ValidUser(i)&&IsAllowedToCast(i)&&(((CurrentSpellFlags&SPELLFLAG_ON_YOURSELF)&&i==CurrentHoovyWizard)||(CurrentSpellFlags&SPELLFLAG_IN_EVERYWHERE)||(CurrentSpellFlags&SPELLFLAG_IN_RANGE&&(GetVectorDistance(HoovyCoords[i],HoovyCoords[CurrentHoovyWizard])<SPELL_EFFECT_RADIUS))))
@@ -450,7 +477,7 @@ void SpellGnomify(int client)
 }
 void SpellInvis(int client)
 {
-    TF2_AddCondition(client,TFCond_Stealthed,4.0)
+    TF2_AddCondition(client,TFCond_Stealthed,40.0)
 }
 void SpellOnFire(int client)
 {
@@ -542,6 +569,20 @@ void SpellScramble(int client)
     }
     clist.Clear()
     delete clist
+}
+void SpellStripWeapons(int client)
+{
+    TF2_RemoveAllWeapons(client)
+}
+void SpellLargeHealth(int client)
+{
+    SetEntityHealth(client,3000)
+}
+void SpellTitanize(int client)
+{
+    TF2_AddCondition(client,TFCond_HalloweenGiant,72.0)
+    TF2_AddCondition(client,TFCond_HalloweenQuickHeal,3.0)
+    SetEntityHealth(client,9000)
 }
 public Action JumpTimer(Handle timer,i)
 {
