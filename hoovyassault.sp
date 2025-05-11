@@ -201,7 +201,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "25.05.10",
+ version = "25.05.11",
  url = ""
 };
 public OnPluginStart()
@@ -280,10 +280,16 @@ public Action OnPlayerRunCmd(int client,int &buttons)
     if(HoovyClass[client]==HOOVY_BOOMER)
     {
         if(getActiveSlot(client)!=TFWeaponSlot_Secondary)return Plugin_Continue
+        int weapon = GetPlayerWeaponSlot(client,TFWeaponSlot_Secondary)
+        if(weapon==-1)return Plugin_Continue
+        int itemIndex = getItemIndex(weapon)
         HoovySpecialDelivery[client] = true
-        float expltime = GetURandomFloat()*3.0
+        float expltime = (itemIndex!=159)?(GetURandomFloat()*3.0):2.5 // Dalokohs explodes after fixed time
         PrintToChatAll("An explosive sandwich has been deployed in this area. Time to take cover, probably.")
-        CreateTimer(expltime>1.0?expltime:1.0,ExplosiveSandwichTimer,client)
+        DataPack d = CreateDataPack()
+        d.WriteCell(client)
+        d.WriteCell(itemIndex)
+        CreateTimer(expltime>1.0?expltime:1.0,ExplosiveSandwichTimer,d,TIMER_DATA_HNDL_CLOSE)
         EmitSoundToAll(boomer_sounds[GetRandomInt(0,BOOMER_VO_NUM-1)],client)
     }
     else if(HoovyClass[client]==HOOVY_LEAPER)
@@ -322,7 +328,7 @@ public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &dama
     APIResult = Hoovyassault_Classapi_TakeDamage(iVictim,iAttacker,inflictor,damage,damagetype,weapon)
     if(APIResult!=Plugin_Continue)return APIResult
     #endif
-    if(HoovyClass[iAttacker]==HOOVY_GNOME&&(damagetype&DMG_BURN))return Plugin_Continue
+    if((HoovyClass[iAttacker]==HOOVY_GNOME||HoovyClass[iAttacker]==HOOVY_BOOMER)&&(damagetype&DMG_BURN))return Plugin_Continue
     if(HoovyFlags[iAttacker]&HOOVY_BIT_DMGBONUS)damage *= OFFICER_DMGBONUS
     if(validVictim)
     {
@@ -526,8 +532,15 @@ public Action Event_StealSandwich(Handle:hEvent, const String:strEventName[], bo
     int target = GetClientOfUserId(GetEventInt(hEvent,"target"))
     if(HoovyClass[owner]==HOOVY_BOOMER)// I have a new way to kill cowards!
     {
-        PrintToChatAll("Ooops, somebody just stepped on the wrong sandwich")
-        ExplodeSandwich(target,owner)
+        if(!IsClientInGame(owner))return Plugin_Continue
+        int weapon = GetPlayerWeaponSlot(owner,TFWeaponSlot_Secondary)
+        if(weapon==-1)return Plugin_Continue
+        int itemIndex = getItemIndex(weapon)
+        if(itemIndex==1190) // Banana can explode twice
+        {
+            PrintToChatAll("Ooops, somebody just stepped on the wrong sandwich")
+            ExplodeSandwich(target,owner,itemIndex)
+        }
     }
     return Plugin_Continue
 }
@@ -946,13 +959,16 @@ public Action Timer_RemoveSandwich(Handle timer, int client)
     if(ent!=-1&&IsValidEntity(ent))AcceptEntityInput(ent, "Kill")
     return Plugin_Stop
 }
-public Action ExplosiveSandwichTimer(Handle timer,int client)
+public Action ExplosiveSandwichTimer(Handle timer,DataPack data)
 {
+    data.Reset()
+    static int client
+    client = data.ReadCell()
     HoovySpecialDelivery[client] = false
     static int entity
     entity = findMySandwich(client)
     if(entity==-1)return Plugin_Stop
-    ExplodeSandwich(entity,client)
+    ExplodeSandwich(entity,client,data.ReadCell())
     CreateTimer(1.0,Timer_RemoveSandwich,client)
     return Plugin_Stop
 }
@@ -1171,12 +1187,31 @@ stock Beam(int from,int to)
     }
     TE_Send(clients, total, 0.0);
 }
-stock ExplodeSandwich(int targetent,int owner)
+stock ExplodeSandwich(int targetent,int owner,int itemIndex)
 {
-    static int i
-    static float pos[3]
-    static float dist
-    static float where[3]
+    int i
+    float pos[3]
+    float dist
+    float where[3]
+    float radius
+    float damage = 320.0
+    switch(itemIndex)
+    {
+        case 42,433,863,1002:{
+            radius = BOOM_RADIUS
+        } // Sandvich
+        case 1190:{
+            radius = BOOM_RADIUS*0.75 // Banana
+        }
+        case 311: {
+            radius = BOOM_RADIUS * 1.25 // Buffalo steak sandvich
+            damage = 250.0
+        }
+        case 159: { // Dalokohs
+            radius = BOOM_RADIUS
+            damage = 170.0
+        }
+    }
     GetEntPropVector(targetent, Prop_Send, "m_vecOrigin", where)
     //if(targetent>=MaxClients)AcceptEntityInput(targetent, "Kill")
     EmitSoundToAll(SOUND_BOOM,SOUND_FROM_WORLD,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL,-1,where)
@@ -1186,9 +1221,22 @@ stock ExplodeSandwich(int targetent,int owner)
         if(!ValidUser(i)||(i!=owner&&TF2_GetClientTeam(i)==TF2_GetClientTeam(owner)))continue;
         GetClientAbsOrigin(i,pos)
         dist = GetVectorDistance(pos,where)
-        if(dist<BOOM_RADIUS) // if he shoots you, you'll probably die
+        if(dist<radius) // if he shoots you, you'll probably die
         {
-            SDKHooks_TakeDamage(i, 0, owner, dist<(BOOM_RADIUS/2.0)?320.0:(320.0*(1.0-dist/BOOM_RADIUS)), DMG_PREVENT_PHYSICS_FORCE|DMG_CRUSH|DMG_ALWAYSGIB)
+            switch(itemIndex)
+            {
+                case(159):{
+                    float dir[3]
+                    MakeVectorFromPoints(where,pos,dir)
+                    dir[2] = 200.0
+                    ScaleVector(dir,100.0*(1.0-dist/radius))
+                    //TF2_AddCondition(i,TFCond_KnockedIntoAir,0.1)
+                    TeleportEntity(i, NULL_VECTOR, NULL_VECTOR, dir)
+                }
+                case(311):TF2_IgnitePlayer(i,owner,40.0); // Dalokohs
+                // Buffalo steak
+            }
+            SDKHooks_TakeDamage(i, 0, owner, dist<(radius/2.0)?damage:(damage*(1.0-dist/radius)), DMG_PREVENT_PHYSICS_FORCE|DMG_CRUSH|DMG_ALWAYSGIB)
         }
     }
 }
