@@ -43,6 +43,8 @@ int TraitorItemPrice[MAX_TRAITOR_ITEMS]
 bool TraitorAdrenaline[MAXPLAYERS+1]
 bool TraitorKart[MAXPLAYERS+1]
 
+bool TraitorDisguised[MAXPLAYERS+1]
+
 Function TraitorItemCallbacks[MAX_TRAITOR_ITEMS]
 int TraitorItemsNum = 0
 
@@ -105,6 +107,7 @@ int GiveEBat(int id)
 {
     TF2_RemoveWeaponSlot(id,TFWeaponSlot_Melee)
     CreateWeapon(id,"tf_weapon_bat",30667)
+    ClientCommand(id,"slot3") // Proper weapon class animations
     return 1
 }
 int GiveSniperRifle(int id)
@@ -113,6 +116,7 @@ int GiveSniperRifle(int id)
     TF2_RemoveWeaponSlot(id,TFWeaponSlot_Primary)
     CreateWeapon(id,"tf_weapon_sniperrifle_classic",1098)
     SetAmmo(id,GetPlayerWeaponSlot(id,TFWeaponSlot_Primary),32)
+    ClientCommand(id,"slot1")
     return 1
 }
 int GiveGL(int id)
@@ -121,6 +125,7 @@ int GiveGL(int id)
     TF2_RemoveWeaponSlot(id,TFWeaponSlot_Primary)
     CreateWeapon(id,"tf_weapon_grenadelauncher",19)
     SetAmmo(id,GetPlayerWeaponSlot(id,TFWeaponSlot_Primary),16)
+    ClientCommand(id,"slot1")
     return 1
 }
 int GiveAdrenaline(int id)
@@ -175,6 +180,12 @@ void RegisterTraitorItem(String:name[],int price,Function callback)
     TraitorItemsNum++
 }
 
+public Action TauntCommand(client, const String:command[], argc)
+{
+    if(TraitorDisguised[client]&&GetHoovyClass(client)==TraitorClass)return Plugin_Handled
+    return Plugin_Continue
+}
+
 public Action OnTouchStart(int client,int other)
 {
     if(TraitorKart[client]&&(GetHoovyClass(client)==TraitorClass)&&ValidUser(other))
@@ -204,7 +215,9 @@ public OnPluginStart()
     RegisterTraitorItem("Adrenaline injection",8,GiveAdrenaline)
     RegisterTraitorItem("Grenade launcher(stun-grenades)",26,GiveGL)
     RegisterTraitorItem("Car!",30,GiveKart)
-    for(int i=1;i<MaxClients;i++)TraitorAdrenaline[i] = TraitorKart[i] = false
+    AddCommandListener(TauntCommand,"taunt")
+    AddCommandListener(TauntCommand,"+taunt")
+    for(int i=1;i<MaxClients;i++)TraitorAdrenaline[i] = TraitorKart[i] = TraitorDisguised[i] = false
 }
 public OnAllPluginsLoaded()
 {
@@ -220,12 +233,24 @@ public OnAllPluginsLoaded()
 public OnClientPutInServer(id)
 {
     TraitorKart[id] = false
+    TraitorDisguised[id] = false
     SDKHook(id,SDKHook_StartTouch,OnTouchStart)
 }
 public OnClientDisconnect(id)
 {
     SDKUnhook(id,SDKHook_StartTouch,OnTouchStart)
 }
+
+public TF2_OnConditionAdded(int client, TFCond condition)
+{
+    if(condition==TFCond_Disguised)TraitorDisguised[client] = true
+}
+
+public TF2_OnConditionRemoved(int client, TFCond condition)
+{
+    if(condition==TFCond_Disguised)TraitorDisguised[client] = false
+}
+
 public Action Timer_ResetAdrenaline(Handle:hTimer,id)
 {
     TraitorAdrenaline[id] = false
