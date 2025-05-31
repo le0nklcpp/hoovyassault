@@ -24,6 +24,7 @@
 #define GBW_STAGING 1 // set to 1 to enable the following features: Comissar SMG
 #define SPELLS_STAGING 1 // set to 1 to enable the following features: Spells
 #define HOOVY_CLASSAPI_ENABLED 1 // set to 1 to enable Hoovy Assault Plugin API
+#define LEAPER_STOMP_ENABLED 1 // set to 1 to enable Goomba stomp for Leaper class
 
 int HoovyClass[MAXPLAYERS+1]
 int HoovyFlags[MAXPLAYERS+1] // bitsum
@@ -81,11 +82,14 @@ stock min(a,b)
 #define SOUND_HEAL "items/smallmedkit1.wav"
 #define SOUND_BOOM "items/cart_explode.wav"
 #define SOUND_RJUMP "weapons/rocket_jumper_explode1.wav"
+#define SOUND_LEAPER_STOMP "player/fall_damage_dealt.wav"
+#define SOUND_LEAPER_REWARD "player/sign_bass_solo.wav"
 
 #define BOOM_RADIUS 600.0
 
 #define LEAPER_VEL 1200.0
 #define LEAPER_SPEED 8.0
+
 #define BOT_CLASS_LIMIT 2
 
 #define DISPENSER_COST 5
@@ -201,7 +205,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "25.05.11",
+ version = "25.05.31",
  url = ""
 };
 public OnPluginStart()
@@ -260,6 +264,8 @@ public OnMapStart()
     PrecacheSound(SOUND_BOOM)
     PrecacheSound(SOUND_RJUMP)
     PrecacheSound(SOUND_HEAL)
+    PrecacheSound(SOUND_LEAPER_REWARD)
+    PrecacheSound(SOUND_LEAPER_STOMP)
     BeamSprite[0] = PrecacheModel("materials/sprites/healbeam_blue.vmt")
     BeamSprite[1] = PrecacheModel("materials/sprites/healbeam.vmt")
     HaloSprite = PrecacheModel("materials/sprites/glow02.vmt")
@@ -271,6 +277,31 @@ public OnMapStart()
     Spells_OnMapStart()
     #endif
 }
+#if LEAPER_STOMP_ENABLED
+public Action OnTouchStart(int client,int other)
+{
+    if(HoovyClass[client]==HOOVY_LEAPER && HoovyValid[client] && ValidUser(other))
+    {
+        if((HoovyCoords[client][2]>HoovyCoords[other][2])) // height
+        {
+            float vel[3]
+            GetEntPropVector(client, Prop_Data, "m_vecVelocity", vel)
+            if(vel[2]<(-250.0))
+            {
+                int listeners[2]
+                listeners[0] = client
+                listeners[1] = other
+                EmitSound(listeners,2,SOUND_LEAPER_REWARD)
+                EmitSoundToAll(SOUND_LEAPER_STOMP,client)
+                SDKHooks_TakeDamage(other, client, client, FloatAbs(vel[2]), DMG_PREVENT_PHYSICS_FORCE|DMG_CRUSH|DMG_ALWAYSGIB)
+                HoovySpecialDelivery[client] = false
+                HoovyScores[TeamScoresIndex(client)] += 8.0
+            }
+        }
+    }
+    return Plugin_Continue
+}
+#endif
 public Action OnPlayerRunCmd(int client,int &buttons)
 {
     #if SPELLS_STAGING
@@ -575,6 +606,9 @@ public removeSDKHooks(client)
     SDKUnhook(client, SDKHook_OnTakeDamage, OnTakeDamage)
     SDKUnhook(client, SDKHook_GetMaxHealth,OnGetMaxHealth)
     SDKUnhook(client, SDKHook_TraceAttack, OnTraceAttack)
+    #if LEAPER_STOMP_ENABLED
+    SDKUnhook(client, SDKHook_StartTouch, OnTouchStart)
+    #endif
     if(IsFakeClient(client))SDKUnhook(client, SDKHook_WeaponSwitch, OnWeaponSwitch)
     else SDKUnhook(client, SDKHook_WeaponCanSwitchToPost, OnWeaponCanSwitchToPost)
 }
@@ -583,6 +617,9 @@ public doSDKHooks(client)
     SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage)
     SDKHook(client, SDKHook_GetMaxHealth,OnGetMaxHealth)
     SDKHook(client, SDKHook_TraceAttack, OnTraceAttack)
+    #if LEAPER_STOMP_ENABLED
+    SDKHook(client, SDKHook_StartTouch, OnTouchStart)
+    #endif
     if(IsFakeClient(client))SDKHook(client, SDKHook_WeaponSwitch, OnWeaponSwitch)
     else SDKHook(client, SDKHook_WeaponCanSwitchToPost, OnWeaponCanSwitchToPost)
 }
