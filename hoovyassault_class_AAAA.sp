@@ -31,13 +31,13 @@ bool A_A[MAXPLAYERS+1]
 #define is_AAAA(%1) ((GetHoovyClass(%1)==AAAAAAAAAAAA)&&is_AA(%1))
 #define is_AAAAAA(%1) (is_AA(%1)&&(TF2_GetClientTeam(%1)!=TF2_GetClientTeam(A)))
 #define is_AAAAAAA(%1) (GetVectorDistance(AAAAAAA,AAAAAAAAAAA)<AAAAAAAAAAAAAA)
-#define AAAAAAAA EmitSoundToAll("vo/heavy_battlecry03.mp3",AAAAAAAAAAAAAAA,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL,-1,NULL_VECTOR,NULL_VECTOR,true,1.3)
+#define AAAAAAAA EmitSoundToAll("vo/heavy_battlecry03.mp3",AAAAAAAAAAAAAAA,SNDCHAN_AUTO,SNDLEVEL_SCREAMING,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL,-1,NULL_VECTOR,NULL_VECTOR,true,1.3)
 public Plugin myinfo = 
 {
  name = "AAAAAAA",
  author = "AAAAAAA",
  description = "AAAAAAA",
- version = "AAAAAAA",
+ version = "AAAAAAAA",
  url = "AAAAAAA"
 };
 // AAAAAAAA
