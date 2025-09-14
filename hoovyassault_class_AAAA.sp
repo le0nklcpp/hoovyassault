@@ -83,7 +83,7 @@ stock AAAAAAAAAAAAAAAAAAAAAAAAAAAAA(A,float AAAAAAA[3])
     static float pos[3]
     static float dist
     TFTeam AAAAAAAAAAAAAAAA = TF2_GetClientTeam(A)
-    FakeClientCommand(A,"explode")
+    ForcePlayerSuicide(A,true)
     EmitSoundToAll("items/cart_explode.wav",SOUND_FROM_WORLD,SNDCHAN_AUTO,SNDLEVEL_NORMAL,SND_NOFLAGS,SNDVOL_NORMAL,SNDPITCH_NORMAL,-1,AAAAAAA)
     AttachParticle(AAAAAAA,"hightower_explosion","",0.0,2.0)
     for(int AA=1;AA<MaxClients;AA++)
