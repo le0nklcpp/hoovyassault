@@ -40,6 +40,7 @@ public Plugin myinfo =
 char TraitorItemNames[MAX_TRAITOR_ITEMS][50]
 int TraitorItemPrice[MAX_TRAITOR_ITEMS]
 
+float TraitorCoords[MAXPLAYERS+1][3]
 bool TraitorAdrenaline[MAXPLAYERS+1]
 bool TraitorKart[MAXPLAYERS+1]
 
@@ -140,6 +141,34 @@ int GiveKart(int id)
     TraitorKart[id] = true
     return 1
 }
+int LeapBack(int id)
+{
+    float flMins[3], flMaxs[3], angles[3]//, scale = 1.0
+    GetEntPropVector(id, Prop_Data, "m_vecMinsPreScaled", flMins)
+    GetEntPropVector(id, Prop_Data, "m_vecMaxsPreScaled", flMaxs)
+    GetClientAbsAngles(id, angles)
+    /*
+    if(HasEntProp(id,Prop_Send,"m_flModelScale"))
+    {
+        scale = GetEntPropFloat(id, Prop_Send, "m_flModelScale")
+        scaleVector(vecMins,scale)
+        scaleVector(vecMaxs,scale)
+    }
+    */
+    TR_TraceHull(TraitorCoords[id], TraitorCoords[id], flMins, flMaxs, MASK_SOLID)
+    TeleportEntity(id,TraitorCoords[id],angles,NULL_VECTOR)
+    if(TR_DidHit())
+    {
+        ForcePlayerSuicide(id)
+        int entity = TR_GetEntityIndex()
+        if(ValidUser(entity))
+        {
+            SDKHooks_TakeDamage(entity, 0, id, float(GetClientHealth(entity)), DMG_PREVENT_PHYSICS_FORCE|DMG_CRUSH|DMG_ALWAYSGIB)
+        }
+    }
+    return 1
+}
+
 void TraitorThink(int id)
 {
     static int item,weapon
@@ -162,6 +191,8 @@ int DisguisePlayer(int id)
 int TraitorSpawn(int id)
 {
     if(TF2_GetPlayerClass(id)!=TFClass_Heavy)return 0
+    CreateTimer(5.0,Timer_SavePosition,id,TIMER_REPEAT)
+    GetClientAbsOrigin(id,TraitorCoords[id])
     TraitorKart[id] = false
     TraitorAdrenaline[id] = false
     DisguisePlayer(id)
@@ -215,6 +246,7 @@ public OnPluginStart()
     RegisterTraitorItem("Adrenaline injection",8,GiveAdrenaline)
     RegisterTraitorItem("Grenade launcher(stun-grenades)",26,GiveGL)
     RegisterTraitorItem("Car!",30,GiveKart)
+    RegisterTraitorItem("Teleport to your old position",7,LeapBack)
     AddCommandListener(TauntCommand,"taunt")
     AddCommandListener(TauntCommand,"+taunt")
     for(int i=1;i<MaxClients;i++)TraitorAdrenaline[i] = TraitorKart[i] = TraitorDisguised[i] = false
@@ -255,6 +287,12 @@ public Action Timer_ResetAdrenaline(Handle:hTimer,id)
 {
     TraitorAdrenaline[id] = false
     return Plugin_Handled
+}
+public Action Timer_SavePosition(Handle: hTimer,id)
+{
+    if(GetHoovyClass(id)!=TraitorClass||!ValidUser(id))return Plugin_Stop
+    GetClientAbsOrigin(id,TraitorCoords[id])
+    return Plugin_Continue
 }
 
 stock getItemIndex(item)
