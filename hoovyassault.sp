@@ -181,6 +181,7 @@ char ClassName[NUM_CLASSES][]=
 
 ConVar meleeOnlyAllowed
 ConVar hideCustomWeapons
+ConVar showClassLimit
 
 #define BOOMER_VO_NUM 8
 char boomer_sounds[BOOMER_VO_NUM][] = {
@@ -205,7 +206,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "25.05.31",
+ version = "25.09.14",
  url = ""
 };
 public OnPluginStart()
@@ -228,6 +229,8 @@ public OnPluginStart()
     AddCommandListener(SayCommand, "say_team")
     meleeOnlyAllowed = CreateConVar("hassault_melee_only","0","Enable/disable melee mode")
     hideCustomWeapons = CreateConVar("hassault_hide_custom_viewmodels","0","Hide viewmodels for non-heavy weapons")
+    showClassLimit = CreateConVar("hassault_show_class_limit", "0", "Display class limit")
+    AutoExecConfig(true, "hoovyassault")
     HoovyScores[0] = HoovyScores[1] = 0
     #if GBW_STAGING
     GBW_Staging_OnPluginStart()
@@ -635,14 +638,32 @@ public ShowMainMenu(id)
     {
       if(!CanPickClass(id,i))continue;
       strinfo[0] = i
-      menu.AddItem(strinfo,ClassName[i])
+      if(showClassLimit.BoolValue)
+      {
+          char classtext[80]
+          int classcount = countClass(id,i)
+          if(HoovyClass[id]==i)classcount++
+          if(ClassLimit[i]>0)Format(classtext, 79, "%s (%i/%i)", ClassName[i], classcount, ClassLimit[i])
+          else Format(classtext, 79, "%s (%i)", ClassName[i], classcount)
+          menu.AddItem(strinfo,classtext)
+      }
+      else menu.AddItem(strinfo, ClassName[i])
     }
     #if HOOVY_CLASSAPI_ENABLED
     for(int i=0;i<NumHoovyClasses;i++)
     {
         if(HoovyExtraClassLimit[i]==-2)continue
         strinfo[0] = i+NUM_CLASSES
-        menu.AddItem(strinfo,HoovyExtraClassName[i])
+        if(showClassLimit.BoolValue)
+        {
+          char classtext[80]
+          int classcount = countClass(id,i+NUM_CLASSES)
+          if(HoovyClass[id]==(i+NUM_CLASSES))classcount++
+          if(HoovyExtraClassLimit[i]>0)Format(classtext, 79, "%s (%i/%i)", HoovyExtraClassName[i], classcount, HoovyExtraClassLimit[i])
+          else Format(classtext, 79, "%s (%i)", HoovyExtraClassName[i], classcount)
+          menu.AddItem(strinfo,classtext)
+        }
+        else menu.AddItem(strinfo,HoovyExtraClassName[i])
     }
     #endif
     strinfo[0]++
