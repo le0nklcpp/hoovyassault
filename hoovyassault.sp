@@ -206,7 +206,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "25.09.14",
+ version = "25.09.17",
  url = ""
 };
 public OnPluginStart()
@@ -556,6 +556,7 @@ public Action Event_RoundStart(Handle:hEvent, const String:strEventName[], bool:
 public Action Event_Resupply(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
     new client = GetClientOfUserId(GetEventInt(hEvent, "userid"))
+    if(!ValidUser(client))return Plugin_Continue
     RemoveUnwantedWeapons(client)
     HoovySpecialDelivery[client] = false
     return Plugin_Continue
