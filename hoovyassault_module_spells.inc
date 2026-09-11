@@ -183,13 +183,9 @@ bool HoovySpellTraceFilter(int entity)
     if(ValidUser(entity)&&IsAllowedToCast(entity))
     {
         //LogMessage("Spell hit entity #%i",entity)
-        getSpellCb
-        Call_StartFunction(INVALID_HANDLE,cb)
-        Call_PushCell(entity)
-        Call_Finish()
-        return false
+        return true
     }
-    return true
+    return false
 }
 public Spells_OnPluginStart()
 {
@@ -380,13 +376,20 @@ stock TryCastingSpell(client,spell)
 }
 stock CastDirectSpell(client)
 {
-    /*float flPos[3]
+    float flPos[3]
     float flAng[3]
     GetClientEyePosition(client, flPos)
     GetClientEyeAngles(client, flAng)
-    TR_EnumerateEntities(flPos,flAng,MASK_SOLID,RayType_Infinite,HoovySpellTraceFilter)*/
-    int target = GetClientAimTarget(client,true)
-    HoovySpellTraceFilter(target)
+    TR_EnumerateEntities(flPos,flAng,MASK_SOLID,RayType_Infinite,HoovySpellTraceFilter)
+    if(TR_DidHit())
+    {
+        getSpellCb
+        Call_StartFunction(INVALID_HANDLE,cb)
+        Call_PushCell(TR_GetEntityIndex())
+        Call_Finish()
+    }
+    //int target = GetClientAimTarget(client,true)
+    //HoovySpellTraceFilter(target)
 }
 stock CastSpell()
 {
