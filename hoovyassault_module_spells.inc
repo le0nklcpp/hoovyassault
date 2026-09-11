@@ -170,6 +170,7 @@ int SpellFlags[]=
 int CurrentHoovyWizard
 int CurrentSpellFlags
 int CurrentSpell
+
 TFTeam CurrentWizardTeam
 typeset SpellCallback
 {
@@ -178,14 +179,18 @@ typeset SpellCallback
 SpellCallback SpellList[23]
 #define getSpellCb  SpellCallback cb = SpellList[CurrentSpell]
 #define IsAllowedToCast(%1) (((CurrentSpellFlags&SPELLFLAG_ON_YOURSELF)&&(CurrentHoovyWizard==%1))||((CurrentSpellFlags&SPELLFLAG_ON_ALLY)&&TF2_GetClientTeam(%1)==CurrentWizardTeam)||((CurrentSpellFlags&SPELLFLAG_ON_FOE)&&TF2_GetClientTeam(%1)!=CurrentWizardTeam))
-bool HoovySpellTraceFilter(int entity)
+
+int SpellHitEnt = -1
+
+bool HoovySpellTraceFilter(int entity, any data)
 {
-    if(ValidUser(entity)&&IsAllowedToCast(entity))
+    if(ValidUser(entity)&&IsAllowedToCast(entity) && entity != data)
     {
         //LogMessage("Spell hit entity #%i",entity)
-        return true
+        SpellHitEnt = entity
+        return false
     }
-    return false
+    return true
 }
 public Spells_OnPluginStart()
 {
@@ -239,7 +244,7 @@ public Action TestSpellCommand(client, args)
     int team = CurrentWizardTeam==TFTeam_Blue?1:0
     int buf = SpellIds[0][team]
     SpellIds[0][team] = spellid
-    TryCastingSpell(client,0)
+    TryCastingSpell(client,0, true)
     SpellIds[0][team] = buf
     return Plugin_Handled
 }
@@ -346,9 +351,9 @@ stock GetSpellTrait(char[] spelltrait,int len)
     int index = GetRandomInt(0,NUM_SPELL_TRAITS-1)
     strcopy(spelltrait,len,spellTraits[index])
 }
-stock TryCastingSpell(client,spell)
+stock TryCastingSpell(client,spell,skipcost = false)
 {
-    if(!Sacrifice(client,spell))
+    if(!Sacrifice(client,spell) && !skipcost)
     {
         PrintToChat(client,"Come back when you\'re a little...Ummm...wiser")
         return false
@@ -380,16 +385,16 @@ stock CastDirectSpell(client)
     float flAng[3]
     GetClientEyePosition(client, flPos)
     GetClientEyeAngles(client, flAng)
-    TR_EnumerateEntities(flPos,flAng,MASK_SOLID,RayType_Infinite,HoovySpellTraceFilter)
-    if(TR_DidHit())
+    SpellHitEnt = -1
+    TR_EnumerateEntities(flPos,flAng,MASK_SHOT,RayType_Infinite,HoovySpellTraceFilter, client)
+    //int target = GetClientAimTarget(client,true)
+    if(SpellHitEnt != -1)
     {
         getSpellCb
         Call_StartFunction(INVALID_HANDLE,cb)
-        Call_PushCell(TR_GetEntityIndex())
+        Call_PushCell(SpellHitEnt)
         Call_Finish()
     }
-    //int target = GetClientAimTarget(client,true)
-    //HoovySpellTraceFilter(target)
 }
 stock CastSpell()
 {
