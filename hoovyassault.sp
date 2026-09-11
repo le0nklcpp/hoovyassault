@@ -33,10 +33,10 @@ bool HoovyVisuals[MAXPLAYERS+1]
 float HoovyCoords[MAXPLAYERS+1][3] // position
 float HoovyMaxHealth[MAXPLAYERS+1]
 int HoovyScores[2] = {0,0} // 0 = RED, 1 = BLU
+int HoovySpawnChoice[MAXPLAYERS+1]
 
 bool HoovyValid[MAXPLAYERS+1]
 bool HoovySpecialDelivery[MAXPLAYERS+1]
-bool MadeHisChoice[MAXPLAYERS+1]
 bool BannerDeployed[MAXPLAYERS+1]
 
 
@@ -212,7 +212,12 @@ public Plugin myinfo =
 };
 public OnPluginStart()
 {
-    for(int i=1;i<MaxClients;i++){HoovyClass[i] = HoovyFlags[i] = HoovyRage[i] = 0;HoovyVisuals[i] = true;HoovySpecialDelivery[i] = MadeHisChoice[i] = BannerDeployed[i] = HoovyClassUnrestricted[i] = HoovyPrimaryUnrestricted[i] = false;if(IsClientInGame(i))doSDKHooks(i);}
+    for(int i=1;i<MaxClients;i++){
+        HoovyClass[i] = HoovyFlags[i] = HoovyRage[i] = 0;
+        HoovyVisuals[i] = true;
+        HoovySpecialDelivery[i] = BannerDeployed[i] = HoovyClassUnrestricted[i] = HoovyPrimaryUnrestricted[i] = false;
+        HoovySpawnChoice[i] = -1; 
+        if(IsClientInGame(i))doSDKHooks(i);}
     //LoadTranslations("hoovy.phrases")
     CreateTimer(HOOVY_CYCLE_TIME,UpdateHoovies,_, TIMER_REPEAT)
     CreateTimer(MEDIC_TICK,HealTimer,_,TIMER_REPEAT)
@@ -484,7 +489,7 @@ public Action Event_PlayerDeath(Handle:hEvent, const String:strEventName[], bool
     int iAttacker = GetClientOfUserId(GetEventInt(hEvent,"attacker"))
     if(iVictim>=1&&iVictim<=MaxClients)
     {
-        MadeHisChoice[iVictim] = false
+        if(HoovyClass[iVictim] == HoovySpawnChoice[iVictim]) HoovySpawnChoice[iVictim] = -1
         DestroyClientBuildings(iVictim,"obj_sentrygun")
         if(iVictim!=iAttacker)
         {
@@ -531,6 +536,7 @@ public Action Event_PlayerClass(Handle:hEvent, const String:strEventName[], bool
     if(ValidUser(client) && view_as<TFClassType>(class)!=TFClass_Heavy && !HoovyClassUnrestricted[client])
     {
         EmitSoundToClient(client, SOUND_NO_OTHER_CLASSES)
+        HoovySpawnChoice[client] = -1
         TF2_SetPlayerClass(client, TFClass_Heavy)
     }
     return Plugin_Continue
@@ -560,7 +566,7 @@ public Action Event_RoundStart(Handle:hEvent, const String:strEventName[], bool:
     for(int i=1;i<MaxClients;i++)
     {
         HoovyFlags[i] = 0
-        MadeHisChoice[i] = false
+        HoovySpawnChoice[i] = -1
     }
     #if SPELLS_STAGING
     Spells_RoundStart()
@@ -601,7 +607,7 @@ public OnClientConnected(id)
     HoovySpecialDelivery[id] = false
     HoovyPrimaryUnrestricted[id] = false
     HoovyClassUnrestricted[id] = false
-    MadeHisChoice[id] = false
+    HoovySpawnChoice[id] = -1
     HoovyVisuals[id] = true
     BannerDeployed[id] = false
 }
@@ -641,14 +647,15 @@ public doSDKHooks(client)
     if(IsFakeClient(client))SDKHook(client, SDKHook_WeaponSwitch, OnWeaponSwitch)
     else SDKHook(client, SDKHook_WeaponCanSwitchToPost, OnWeaponCanSwitchToPost)
 }
-public ShowMainMenu(id)
+void ShowMainMenu(int id, bool respawn = true)
 {
     if(!ValidUser(id))return
     CancelClientMenu(id)
     Menu menu = CreateMenu(MainMenuHandler)
     menu.SetTitle("Hoovy Class menu")
-    char strinfo[2]
-    strinfo[1] = '\0'
+    char strinfo[3]
+    strinfo[1] = view_as<char>(respawn)
+    strinfo[2] = '\0'
     for(int i=0;i<NUM_CLASSES;i++)
     {
       if(!CanPickClass(id,i))continue;
@@ -696,7 +703,7 @@ public MainMenuHandler(Handle menuid, MenuAction action, id, menu_item)
     if(action == MenuAction_End)CloseHandle(menuid)
     else if(action == MenuAction_Select)
     {
-        char strinfo[2]
+        char strinfo[3]
         GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo))
         int result = strinfo[0]
         #if HOOVY_CLASSAPI_ENABLED
@@ -711,11 +718,8 @@ public MainMenuHandler(Handle menuid, MenuAction action, id, menu_item)
                 ShowMainMenu(id)
                 return
             }
-            MadeHisChoice[id] = true
-            HoovyClass[id] = result
-            HoovyMaxHealth[id] = getMaxHealth(id)
-            SetEntityHealth(id,RoundToFloor(HoovyMaxHealth[id]))
-            TF2_RespawnPlayer(id)
+            HoovySpawnChoice[id] = result
+            if(strinfo[1])TF2_RespawnPlayer(id)
             PrintToChat(id,"You will be able to pick other class after death")
         }
         #if HOOVY_CLASSAPI_ENABLED
@@ -782,7 +786,7 @@ public ShowHelp(id,bool canreturn)
 public HelpHandler(Handle menuid, MenuAction action, id, menu_item)
 {
     if(action == MenuAction_End)CloseHandle(menuid)
-    if(action == MenuAction_Cancel&&!MadeHisChoice[id])ShowMainMenu(id)
+    if(action == MenuAction_Cancel && (HoovySpawnChoice[id] == -1))ShowMainMenu(id)
     if(action == MenuAction_Select)
     {
         char strinfo[3]
@@ -1070,9 +1074,17 @@ public Action UpdateHoovies(Handle timer)
 public Action Timer_AfterSpawn(Handle timer, client)
 {
     if(!ValidUser(client))return Plugin_Continue
+
+    if(HoovySpawnChoice[client] != -1)
+    {
+        HoovyClass[client] = HoovySpawnChoice[client]
+        HoovyMaxHealth[client] = getMaxHealth(client)
+        SetEntityHealth(client, RoundToFloor(HoovyMaxHealth[client]))
+    }
+
     if(!IsFakeClient(client))
     {
-        if(!MadeHisChoice[client])ShowMainMenu(client)
+        if(HoovySpawnChoice[client] == -1)ShowMainMenu(client)
     }
     else HoovyClass[client] = PickBotClass(client)
     #if HOOVY_CLASSAPI_ENABLED
@@ -1080,14 +1092,14 @@ public Action Timer_AfterSpawn(Handle timer, client)
     {
         if(!Hoovyassault_Classapi_OnSpawn(client))
         {
-        MadeHisChoice[client] = false
+        HoovySpawnChoice[client] = -1
         HoovyClass[client] = HOOVY_SOLDIER
         TF2_RespawnPlayer(client)
         }
     }
     if(TF2_GetPlayerClass(client)!=TFClass_Heavy&&!HoovyClassUnrestricted[client])
     {
-        MadeHisChoice[client] = false
+        HoovySpawnChoice[client] = -1
         TF2_SetPlayerClass(client, TFClass_Heavy)
         TF2_RespawnPlayer(client)
     }
@@ -1134,6 +1146,7 @@ public Action VoiceCommand(client, const String:command[], argc)
     }
     return Plugin_Continue
 }
+
 public Action SayCommand(client, const String:command[], argc)
 {
     if(!client || client > MaxClients ||!IsClientInGame(client))return Plugin_Continue
@@ -1145,8 +1158,10 @@ public Action SayCommand(client, const String:command[], argc)
         ShowHelp(client,false)
         return Plugin_Stop
     }
+    if(StrEqual(msg,"\"!class\"") || StrEqual(msg, "\"/class\""))ShowMainMenu(client, false)
     return Plugin_Continue
 }
+
 // rtd plugin from linux_lover https://forums. alliedmods. net/showthread.php?p=666222
 AttachParticle(iEntity, const String:strParticleEffect[], const String:strAttachPoint[]="", Float:flOffsetZ=0.0, Float:flSelfDestruct=0.0)
 {
