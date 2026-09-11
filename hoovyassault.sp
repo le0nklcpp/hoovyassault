@@ -84,6 +84,7 @@ stock min(a,b)
 #define SOUND_RJUMP "weapons/rocket_jumper_explode1.wav"
 #define SOUND_LEAPER_STOMP "player/fall_damage_dealt.wav"
 #define SOUND_LEAPER_REWARD "player/sign_bass_solo.wav"
+#define SOUND_NO_OTHER_CLASSES "vo/heavy_no02.mp3"
 
 #define BOOM_RADIUS 600.0
 
@@ -224,6 +225,7 @@ public OnPluginStart()
     HookEvent("teamplay_point_captured",Event_PointCaptured)
     HookEvent("teamplay_flag_event",Event_FlagEvent)
     HookEvent("killed_capping_player",Event_KilledCappingPlayer)
+    HookEvent("player_changeclass", Event_PlayerClass)
     AddCommandListener(VoiceCommand , "voicemenu")
     AddCommandListener(SayCommand, "say")
     AddCommandListener(SayCommand, "say_team")
@@ -269,6 +271,7 @@ public OnMapStart()
     PrecacheSound(SOUND_HEAL)
     PrecacheSound(SOUND_LEAPER_REWARD)
     PrecacheSound(SOUND_LEAPER_STOMP)
+    PrecacheSound(SOUND_NO_OTHER_CLASSES)
     BeamSprite[0] = PrecacheModel("materials/sprites/healbeam_blue.vmt")
     BeamSprite[1] = PrecacheModel("materials/sprites/healbeam.vmt")
     HaloSprite = PrecacheModel("materials/sprites/glow02.vmt")
@@ -518,6 +521,17 @@ public Action Event_PlayerSpawn(Handle:hEvent, const String:strEventName[], bool
     if(ValidUser(client))
     {
         CreateTimer(2.0,Timer_AfterSpawn,client)
+    }
+    return Plugin_Continue
+}
+public Action Event_PlayerClass(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
+{
+    int client = GetClientOfUserId(GetEventInt(hEvent,"userid"))
+    int class = GetEventInt(hEvent, "class")
+    if(ValidUser(client) && view_as<TFClassType>(class)!=TFClass_Heavy && !HoovyClassUnrestricted[client])
+    {
+        EmitSoundToClient(client, SOUND_NO_OTHER_CLASSES)
+        TF2_SetPlayerClass(client, TFClass_Heavy)
     }
     return Plugin_Continue
 }
