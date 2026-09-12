@@ -27,7 +27,7 @@
 #define LEAPER_STOMP_ENABLED 1 // set to 1 to enable Goomba stomp for Leaper class
 
 int HoovyClass[MAXPLAYERS+1]
-int HoovyFlags[MAXPLAYERS+1] // bitsum
+int HoovyFlags[MAXPLAYERS+1] // bitsum, temporary effects, do not use it for abilities
 int HoovyRage[MAXPLAYERS+1]
 bool HoovyVisuals[MAXPLAYERS+1]
 float HoovyCoords[MAXPLAYERS+1][3] // position
@@ -207,7 +207,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "25.09.17",
+ version = "26.09.10",
  url = ""
 };
 public OnPluginStart()
@@ -392,7 +392,7 @@ public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &dama
     damage = damage * ClassChars[HoovyClass[iAttacker]][Char_Dmgbonus]
     if((validVictim&&HoovyClass[iVictim]==HOOVY_BOXER)||HoovyClass[iAttacker]==HOOVY_BOXER)
     {
-        if(TF2_GetClientTeam(iAttacker)!=TF2_GetClientTeam(iVictim)&&(damagetype&DMG_CLUB))
+        if(damagetype&DMG_CLUB)
         {
             damage = validVictim?float(GetClientHealth(iVictim)):(damage*2)
         }
