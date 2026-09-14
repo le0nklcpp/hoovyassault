@@ -152,7 +152,7 @@ int ClassLimit[NUM_CLASSES]=
 
 
 char ClassDescription[NUM_CLASSES][]={
-"Health bonus +75 HP",
+"Health bonus +75 HP, +5% dmg res per enemy in sight (25% max)",
 "Healing allies,BUT may use only melee",
 "+50 max HP,+10% dmg res for allies, BUT -50% HP,-30% dmg res,-15% dmg penalty for you",
 " +10% dmg bonus for allies,+20% for you, BUT -25% HP,-15% dmg res for you",
@@ -207,7 +207,7 @@ public Plugin myinfo =
  name = "Hoovy assault",
  author = "breins",
  description = "Battle of heavies",
- version = "26.09.10",
+ version = "26.09.13",
  url = ""
 };
 public OnPluginStart()
@@ -365,22 +365,29 @@ public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &dama
     static bool validVictim
     validVictim = ValidUser(iVictim)
     if(!ValidUser(iAttacker))return Plugin_Continue
+
+
     #if HOOVY_CLASSAPI_ENABLED
     static Action APIResult
     APIResult = Hoovyassault_Classapi_TakeDamage(iVictim,iAttacker,inflictor,damage,damagetype,weapon)
     if(APIResult!=Plugin_Continue)return APIResult
     #endif
+
+
     if((HoovyClass[iAttacker]==HOOVY_GNOME||HoovyClass[iAttacker]==HOOVY_BOOMER)&&(damagetype&DMG_BURN))return Plugin_Continue
     if(HoovyFlags[iAttacker]&HOOVY_BIT_DMGBONUS)damage *= OFFICER_DMGBONUS
     if(validVictim)
     {
         if(HoovyFlags[iVictim]&HOOVY_BIT_DMGRES)damage  *= COMISSAR_DMGRES
+
         #if HOOVY_CLASSAPI_ENABLED
         OnClassApi(iVictim,damage = damage * HoovyExtraClassParams[ClassApiIndex(HoovyClass[iVictim])][Char_Dmgrespenalty])
         else 
         #endif
         damage = damage * ClassChars[HoovyClass[iVictim]][Char_Dmgrespenalty]
     }
+
+
     #if GBW_STAGING
     if(HoovyClass[iAttacker]==HOOVY_COMISSAR&&getActiveSlot(iAttacker)==TFWeaponSlot_Secondary)damage = damage * 1.25
     else
@@ -390,6 +397,8 @@ public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &dama
     else
     #endif
     damage = damage * ClassChars[HoovyClass[iAttacker]][Char_Dmgbonus]
+
+
     if((validVictim&&HoovyClass[iVictim]==HOOVY_BOXER)||HoovyClass[iAttacker]==HOOVY_BOXER)
     {
         if(damagetype&DMG_CLUB)
@@ -517,6 +526,10 @@ public Action Event_ItemPickup(Handle:hEvent, const String:strEventName[], bool:
 public Action Event_PlayerSpawn(Handle:hEvent, const String:strEventName[], bool:bDontBroadcast)
 {
     new client = GetClientOfUserId(GetEventInt(hEvent, "userid"))
+    if(HoovySpawnChoice[client] != -1)
+    {
+        HoovyClass[client] = HoovySpawnChoice[client]
+    }
     HoovySpecialDelivery[client] = false
     HoovyMaxHealth[client] = getMaxHealth(client)
     HoovyRage[client] = 0
@@ -1075,18 +1088,14 @@ public Action Timer_AfterSpawn(Handle timer, client)
 {
     if(!ValidUser(client))return Plugin_Continue
 
-    if(HoovySpawnChoice[client] != -1)
-    {
-        HoovyClass[client] = HoovySpawnChoice[client]
-        HoovyMaxHealth[client] = getMaxHealth(client)
-        SetEntityHealth(client, RoundToFloor(HoovyMaxHealth[client]))
-    }
-
     if(!IsFakeClient(client))
     {
         if(HoovySpawnChoice[client] == -1)ShowMainMenu(client)
     }
     else HoovyClass[client] = PickBotClass(client)
+
+    TF2_RegeneratePlayer(client)
+
     #if HOOVY_CLASSAPI_ENABLED
     if(HoovyClass[client]>=NUM_CLASSES)
     {
@@ -1478,6 +1487,7 @@ stock DestroyClientBuildings(client,const char[]objname)
         }
     }
 }
+
 stock setActiveSlot(client,slot)
 {
     new iWeapon = GetPlayerWeaponSlot(client, slot);
