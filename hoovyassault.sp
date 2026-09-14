@@ -60,6 +60,7 @@ stock min(a,b)
 #define HOOVY_CYCLE_TIME 0.2
 #define HOOVY_EFFECTS_RADIUS 315.0
 #define MENU_TIMEOUT 4
+#define MAX_SOLDIER_DEFENSE_BONUS 5
 #define MEDIC_HEAL 15 // HP/tic
 #define MEDIC_FIST_HEAL 35
 #define MEDIC_HEAL_FIST_DELAY 1.5
@@ -385,6 +386,23 @@ public Action OnTakeDamage(iVictim, &iAttacker, &inflictor, &Float:damage, &dama
         else 
         #endif
         damage = damage * ClassChars[HoovyClass[iVictim]][Char_Dmgrespenalty]
+
+        if(HoovyClass[iVictim] == HOOVY_SOLDIER) // +5% dmg res per enemy in sight
+        {
+            int team = view_as<int>(TF2_GetClientTeam(iVictim))
+            int ectr = 0
+            for(int i = 1; i < MaxClients; i++)
+            {
+                if(!ValidUser(i) || view_as<int>(TF2_GetClientTeam(i)) == team)continue
+
+                if(IsInViewCone(iVictim, iAttacker) && IsVisible(iVictim, i))
+                {
+                    ectr++
+                    if(ectr == MAX_SOLDIER_DEFENSE_BONUS)break;
+                }
+            }
+            damage = damage * (1 - 0.05 * ectr)
+        }
     }
 
 
@@ -1486,6 +1504,57 @@ stock DestroyClientBuildings(client,const char[]objname)
             AcceptEntityInput(entity, "Kill")
         }
     }
+}
+
+bool Filter_IgnoreSelf(int entity, int contentsMask, any data)
+{
+    return (entity != data);
+}
+
+stock bool:IsVisible(client, target)
+{
+    static float clientpos[3], Tpos[3], Theadpos[3]
+    GetClientEyePosition(client, clientpos)
+
+    GetClientAbsOrigin(target,Tpos)
+    GetClientEyePosition(target,Theadpos)
+
+    Tpos[2] += 1.0 // Raising from the ground
+
+    TR_TraceRayFilter(clientpos, Theadpos, MASK_SHOT, RayType_EndPoint, Filter_IgnoreSelf, client)
+    if(TR_DidHit() && TR_GetEntityIndex() == target)return true
+    // Double check in case if their head is visible
+    TR_TraceRayFilter(clientpos, Tpos, MASK_SHOT, RayType_EndPoint, Filter_IgnoreSelf, client)
+    return (TR_DidHit() && TR_GetEntityIndex() == target)
+}
+
+// https://forums.alliedmods.net/showthread.php?t=210080
+stock bool:IsInViewCone(client, target, Float:angle=90.0, Float:distance=0.0, bool:negativeangle=false)
+{
+    static float clientpos[3], targetpos[3], anglevector[3], targetvector[3], resultangle, resultdistance;
+	
+    GetClientEyeAngles(client, anglevector);
+    anglevector[0] = anglevector[2] = 0.0;
+    GetAngleVectors(anglevector, anglevector, NULL_VECTOR, NULL_VECTOR);
+    NormalizeVector(anglevector, anglevector);
+    if(negativeangle)
+        NegateVector(anglevector);
+
+    GetClientAbsOrigin(client, clientpos);
+    GetClientAbsOrigin(target, targetpos);
+    if(distance > 0)
+    {
+        resultdistance = GetVectorDistance(clientpos, targetpos);
+        if(distance < resultdistance)
+            return false;
+    }
+    clientpos[2] = targetpos[2] = 0.0;
+    MakeVectorFromPoints(clientpos, targetpos, targetvector);
+    NormalizeVector(targetvector, targetvector);
+	
+    resultangle = RadToDeg(ArcCosine(GetVectorDotProduct(targetvector, anglevector)));
+	
+    return (resultangle <= angle/2);
 }
 
 stock setActiveSlot(client,slot)
