@@ -125,7 +125,7 @@ int GiveCrossbow(int id)
     SetHoovyPrimary(id, true)
     TF2_RemoveWeaponSlot(id, TFWeaponSlot_Primary)
     CreateWeapon(id, "tf_weapon_crossbow", 305)
-    ClientCommand(id, "slot3")
+    ClientCommand(id, "slot1")
     return 1
 }
 int GiveSniperRifle(int id)
