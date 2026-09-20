@@ -33,7 +33,7 @@ public Plugin myinfo =
  name = "Hoovyassault spy class",
  author = "breins",
  description = "Spy class for Pootis Fortress",
- version = "1.2",
+ version = "1.3",
  url = ""
 };
 #define MAX_TRAITOR_ITEMS 22
@@ -48,6 +48,8 @@ bool TraitorDisguised[MAXPLAYERS+1]
 
 Function TraitorItemCallbacks[MAX_TRAITOR_ITEMS]
 int TraitorItemsNum = 0
+
+UserMsg g_FadeUserMsgId
 
 public TraitorMenuHandler(Handle menu,MenuAction action,int client,int item)
 {
@@ -95,11 +97,18 @@ int TraitorTakeDamage(int Victim,int Attacker,int inflictor,float &damage,int &d
     }
     if(!ValidUser(Attacker)||GetHoovyClass(Attacker)!=TraitorClass)return HOOVY_CB_IGNORED
     switch(getItemIndex(weapon)){
+    case(305): {
+            damage = 0.0
+            TF2_StunPlayer(Victim, 15.0, 0.5,TF_STUNFLAG_SLOWDOWN|TF_STUNFLAG_NOSOUNDOREFFECT)
+    }
     case(30667):damage *= 2.0;
     case(19):{
-        damage = 0.0
-        if(Victim==Attacker||TF2_GetClientTeam(Victim)!=TF2_GetClientTeam(Attacker))
-            TF2_StunPlayer(Victim,7.0,0.5,TF_STUNFLAGS_SMALLBONK)
+            damage = 0.0
+            if(Victim==Attacker||TF2_GetClientTeam(Victim)!=TF2_GetClientTeam(Attacker))
+            {
+                PerformBlind(Victim, 255)
+                TF2_StunPlayer(Victim,7.0,0.1,TF_STUNFLAG_THIRDPERSON|TF_STUNFLAG_NOSOUNDOREFFECT|TF_STUNFLAG_SLOWDOWN)
+            }
         }
     }
     return HOOVY_CB_IGNORED
@@ -109,6 +118,14 @@ int GiveEBat(int id)
     TF2_RemoveWeaponSlot(id,TFWeaponSlot_Melee)
     CreateWeapon(id,"tf_weapon_bat",30667)
     ClientCommand(id,"slot3") // Proper weapon class animations
+    return 1
+}
+int GiveCrossbow(int id)
+{
+    SetHoovyPrimary(id, true)
+    TF2_RemoveWeaponSlot(id, TFWeaponSlot_Primary)
+    CreateWeapon(id, "tf_weapon_crossbow", 305)
+    ClientCommand(id, "slot3")
     return 1
 }
 int GiveSniperRifle(int id)
@@ -174,12 +191,16 @@ void TraitorThink(int id)
     static int item,weapon
     weapon = GetPlayerWeaponSlot(id,TFWeaponSlot_Primary)
     item = getItemIndex(weapon)
-    if(item!=-1&&item!=1098&&item!=19)
+    if(item!=-1&&item!=1098&&item!=19&&item!=305)
     {
         TF2_RemoveWeaponSlot(id,TFWeaponSlot_Primary)
     }
     //else if(item==19)SetAmmo(id,weapon,0)
     if(TraitorKart[id])TF2_AddCondition(id,TFCond_HalloweenKart,HOOVY_CYCLE_TIME+0.1)
+    if(TraitorDisguised[id] && (GetClientButtons(id) & IN_ATTACK || GetClientButtons(id) & IN_ATTACK2))
+    {
+        RemoveDisguise(id)
+    }
 }
 int DisguisePlayer(int id)
 {
@@ -187,6 +208,14 @@ int DisguisePlayer(int id)
     TF2_DisguisePlayer(id,TF2_GetClientTeam(id)==TFTeam_Red?TFTeam_Blue:TFTeam_Red,TFClass_Heavy)
     TF2_SetPlayerClass(id,TFClass_Heavy,_,false)
     return 1
+}
+void RemoveDisguise(int id)
+{
+    if(!TraitorDisguised[id])return
+    TF2_RemovePlayerDisguise(id)
+/*    PrintToChat(id, "You have been revealed!")
+    SetEntProp(id, Prop_Send, "m_bForcedSkin", 0)
+    SetEntProp(id, Prop_Send, "m_nSkin", TF2_GetClientTeam(id)==TFTeam_Red ? 0 : 1)*/
 }
 int TraitorSpawn(int id)
 {
@@ -237,10 +266,23 @@ public Action OnTouchStart(int client,int other)
     return Plugin_Continue
 }
 
+public Action OnCrossbowBoltTouch(int ent, int other)
+{
+    if(!ValidUser(other))return Plugin_Continue
+    int owner = GetEntPropEnt(ent, Prop_Data, "m_hOwnerEntity")
+    if(ValidUser(owner) && TF2_GetClientTeam(owner) == TF2_GetClientTeam(other) && GetHoovyClass(owner) == TraitorClass)
+    {
+        AcceptEntityInput(ent, "Kill")
+    }
+    return Plugin_Continue
+}
+
 public OnPluginStart()
 {
+    g_FadeUserMsgId = GetUserMessageId("Fade")
     GBW_Staging_OnPluginStart()
     RegisterTraitorItem("Neon stick(definitely not a weapon)",8,GiveEBat)
+    RegisterTraitorItem("Tranquilizer crossbow", 11, GiveCrossbow)
     RegisterTraitorItem("Classic",22,GiveSniperRifle)
     RegisterTraitorItem("Disguise",2,DisguisePlayer)
     RegisterTraitorItem("Adrenaline injection",8,GiveAdrenaline)
@@ -262,6 +304,7 @@ public OnAllPluginsLoaded()
         RegisterHoovyDamageCallback(TraitorClass,TraitorTakeDamage)
     }
 }
+
 public OnClientPutInServer(id)
 {
     TraitorKart[id] = false
@@ -271,6 +314,23 @@ public OnClientPutInServer(id)
 public OnClientDisconnect(id)
 {
     SDKUnhook(id,SDKHook_StartTouch,OnTouchStart)
+}
+
+public Action OnPlayerRunCmd(int client,int &buttons)
+{
+    if(TraitorDisguised[client] && (buttons & IN_ATTACK || buttons & IN_ATTACK2) && IsPlayerAlive(client))
+    {
+        if(GetHoovyClass(client) == TraitorClass)TF2_RemovePlayerDisguise(client)
+    }
+    return Plugin_Continue
+}
+
+public void OnEntityCreated(int entity, const char[] classname)
+{
+    if(StrEqual(classname, "tf_projectile_healing_bolt"))
+    {
+        SDKHook(entity, SDKHook_Touch, OnCrossbowBoltTouch)
+    }
 }
 
 public TF2_OnConditionAdded(int client, TFCond condition)
@@ -294,7 +354,43 @@ public Action Timer_SavePosition(Handle: hTimer,id)
     GetClientAbsOrigin(id,TraitorCoords[id])
     return Plugin_Continue
 }
+stock PerformBlind(int target, int amount) // from funcommands
+{
+	int targets[2];
+	targets[0] = target;
+	
+	int duration = 3584;
+        int holdtime = 0;
+	int flags;
+        flags = (0x0001 | 0x0010);
+	
+	int color[4] = { 255, 255, 255, 0 };
+	color[3] = amount;
+	
+	Handle message = StartMessageEx(g_FadeUserMsgId, targets, 1);
+	if (GetUserMessageType() == UM_Protobuf)
+	{
+		Protobuf pb = UserMessageToProtobuf(message);
+		pb.SetInt("duration", duration);
+		pb.SetInt("hold_time", holdtime);
+		pb.SetInt("flags", flags);
+		pb.SetColor("clr", color);
+	}
+	else
+	{
+		BfWrite bf = UserMessageToBfWrite(message);
+		bf.WriteShort(duration);
+		bf.WriteShort(holdtime);
+		bf.WriteShort(flags);		
+		bf.WriteByte(color[0]);
+		bf.WriteByte(color[1]);
+		bf.WriteByte(color[2]);
+		bf.WriteByte(color[3]);
+	}
+	
+	EndMessage();
 
+}
 stock getItemIndex(item)
 {
  if(item==-1)return -1
