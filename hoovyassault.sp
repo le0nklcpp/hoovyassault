@@ -517,7 +517,7 @@ public Action Event_PlayerDeath(Handle:hEvent, const String:strEventName[], bool
     if(iVictim>=1&&iVictim<=MaxClients)
     {
         if(HoovyClass[iVictim] == HoovySpawnChoice[iVictim]) HoovySpawnChoice[iVictim] = -1
-        DestroyClientBuildings(iVictim,"obj_sentrygun")
+        DestroyClientBuildings(iVictim,"obj_sentrygun") // intended behavior to not destroy the dispenser
         if(iVictim!=iAttacker)
         {
             AddScores(iVictim,1)
@@ -556,7 +556,7 @@ public Action Event_PlayerSpawn(Handle:hEvent, const String:strEventName[], bool
     HoovyClassUnrestricted[client] = false
     if(ValidUser(client))
     {
-        CreateTimer(2.0,Timer_AfterSpawn,client)
+        CreateTimer(0.4,Timer_AfterSpawn,client)
     }
     return Plugin_Continue
 }
@@ -718,8 +718,11 @@ void ShowMainMenu(int id, bool respawn = true)
         }
         else menu.AddItem(strinfo,HoovyExtraClassName[i])
     }
+
+    strinfo[0] = NumHoovyClasses
+    #else
+    strinfo[0] = NUM_CLASSES
     #endif
-    strinfo[0]++
     menu.AddItem(strinfo, "Help")
     strinfo[0]++
     menu.AddItem(strinfo, HoovyVisuals[id]?"Hide medic beams":"Show medic beams")
@@ -1111,6 +1114,12 @@ public Action Timer_AfterSpawn(Handle timer, client)
         if(HoovySpawnChoice[client] == -1)ShowMainMenu(client)
     }
     else HoovyClass[client] = PickBotClass(client)
+
+    if(HoovyClass[client] != HOOVY_ENGINEER)
+    {
+        DestroyClientBuildings(client, "obj_dispenser")
+        DestroyClientBuildings(client, "obj_sentrygun")
+    }
 
     TF2_RegeneratePlayer(client)
 
