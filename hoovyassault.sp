@@ -719,9 +719,9 @@ void ShowMainMenu(int id, bool respawn = true)
         else menu.AddItem(strinfo,HoovyExtraClassName[i])
     }
 
-    strinfo[0] = NumHoovyClasses
+    strinfo[0] = NUM_CLASSES+NumHoovyClasses+1
     #else
-    strinfo[0] = NUM_CLASSES
+    strinfo[0] = NUM_CLASSES+1
     #endif
     menu.AddItem(strinfo, "Help")
     strinfo[0]++
