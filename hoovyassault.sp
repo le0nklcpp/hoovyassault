@@ -690,7 +690,7 @@ void ShowMainMenu(int id, bool respawn = true)
     for(int i=0;i<NUM_CLASSES;i++)
     {
       if(!CanPickClass(id,i))continue;
-      strinfo[0] = i
+      strinfo[0] = i+1
       if(showClassLimit.BoolValue)
       {
           char classtext[80]
@@ -706,7 +706,7 @@ void ShowMainMenu(int id, bool respawn = true)
     for(int i=0;i<NumHoovyClasses;i++)
     {
         if(HoovyExtraClassLimit[i]==-2)continue
-        strinfo[0] = i+NUM_CLASSES
+        strinfo[0] = i+NUM_CLASSES+1
         if(showClassLimit.BoolValue)
         {
           char classtext[80]
@@ -739,7 +739,7 @@ public MainMenuHandler(Handle menuid, MenuAction action, id, menu_item)
     {
         char strinfo[3]
         GetMenuItem(menuid, menu_item, strinfo, sizeof(strinfo))
-        int result = strinfo[0]
+        int result = strinfo[0]-1
         #if HOOVY_CLASSAPI_ENABLED
         if(result<(NUM_CLASSES+NumHoovyClasses))
         #else
