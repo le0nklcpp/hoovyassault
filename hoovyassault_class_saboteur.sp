@@ -21,7 +21,8 @@
 #include "hoovyassault"
 #include "hoovyassault_module_gbw" // for CreateWeapon
 
-#define ValidUser(%1) ((1<=%1<=MaxClients)&&IsClientInGame(%1)&&IsPlayerAlive(%1))
+#define ValidUser(%1) ((1<=%1<=MaxClients)&&IsClientInGame(%1))
+#define IsAlive(%1) IsPlayerAlive(%1)
 
 typeset TraitorItemCallback{
 function bool(int id);
@@ -57,7 +58,7 @@ public TraitorMenuHandler(Handle menu,MenuAction action,int client,int item)
     else if(action == MenuAction_Select)
     {
         int result
-        if(!ValidUser(client))return
+        if(!ValidUser(client)||!IsAlive(client))return
         char strinfo[2]
         GetMenuItem(menu, item, strinfo, sizeof(strinfo))
         int index = strinfo[0]
@@ -178,7 +179,7 @@ int LeapBack(int id)
     {
         ForcePlayerSuicide(id)
         int entity = TR_GetEntityIndex()
-        if(ValidUser(entity))
+        if(ValidUser(entity) && IsAlive(entity))
         {
             SDKHooks_TakeDamage(entity, 0, id, float(GetClientHealth(entity)), DMG_PREVENT_PHYSICS_FORCE|DMG_CRUSH|DMG_ALWAYSGIB)
         }
@@ -248,7 +249,7 @@ public Action TauntCommand(client, const String:command[], argc)
 
 public Action OnTouchStart(int client,int other)
 {
-    if(TraitorKart[client]&&(GetHoovyClass(client)==TraitorClass)&&ValidUser(other))
+    if(TraitorKart[client]&&(GetHoovyClass(client)==TraitorClass)&&ValidUser(other)&&IsAlive(other))
     {
         static float angles[3],vel[3],fwd[3],right[3],up[3],cur[3]
         vel[0]=vel[1]=vel[2]=0.0
@@ -268,7 +269,7 @@ public Action OnTouchStart(int client,int other)
 
 public Action OnCrossbowBoltTouch(int ent, int other)
 {
-    if(!ValidUser(other))return Plugin_Continue
+    if(!ValidUser(other)||!IsAlive(other))return Plugin_Continue
     int owner = GetEntPropEnt(ent, Prop_Data, "m_hOwnerEntity")
     if(ValidUser(owner) && TF2_GetClientTeam(owner) == TF2_GetClientTeam(other) && GetHoovyClass(owner) == TraitorClass)
     {
